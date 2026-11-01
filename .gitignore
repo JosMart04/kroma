@@ -1,0 +1,30 @@
+node_modules/
+.next/
+out/
+build/
+.env
+.env.local
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+.claude/settings.local.json
+
+# Fotos de PERSONA para validar endpoints — NUNCA se commitean.
+# public/ se sirve públicamente en el despliegue, que las bases obligan a
+# mantener abierto hasta el 31 de agosto: una foto de alguien acaba indexada.
+# Las 12 fotos de prenda (grm-XX.jpg) SÍ van al repo: son el armario del demo.
+public/fixtures/persona-*.jpg
+experiment/data/*.csv
+!experiment/data/.gitkeep
+
+# Scratch folder used by scripts/calibration-harness.mjs
+.harness-*/
+
+.vercel
+.env*
+
+# Scratch probe folder and local test photos — never committed.
+.mz/
+.harness-*/
+t-*.jpg
+tee-*.jpg

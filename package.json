@@ -1,0 +1,49 @@
+{
+  "name": "colorblindfit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "check": "node scripts/check-boundaries.mjs && npm run typecheck && npm run lint",
+    "cost": "node scripts/feature-cost.mjs",
+    "gen:matrices": "node scripts/gen-matrices.mjs",
+    "verify:matrices": "node scripts/gen-matrices.mjs --check",
+    "harness:calibration": "node --experimental-strip-types --no-warnings scripts/calibration-harness.mjs",
+    "boundaries": "node scripts/check-boundaries.mjs",
+    "harness:garment": "node --experimental-strip-types --no-warnings scripts/garment-harness.mjs",
+    "check:icons": "node scripts/check-icons.mjs",
+    "harness:daltonize": "node --experimental-strip-types --no-warnings scripts/daltonize-harness.mjs",
+    "harness:upload": "node --experimental-strip-types --no-warnings scripts/upload-harness.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "clsx": "^2.1.1",
+    "culori": "^4.0.1",
+    "idb": "^8.0.0",
+    "lucide-react": "^0.400.0",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sharp": "^0.33.5",
+    "tailwind-merge": "^2.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/culori": "^2.1.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

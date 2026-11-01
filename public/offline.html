@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline · KROMA</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        background: #fff;
+        color: #0f172a;
+        font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 32rem; }
+      h1 { font-size: 1.75rem; font-weight: 800; margin: 0 0 0.75rem; }
+      p { margin: 0 0 0.75rem; color: #334155; }
+      .note {
+        margin-top: 1.25rem;
+        border: 2px solid #cbd5e1;
+        border-radius: 0.75rem;
+        padding: 0.875rem;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>KROMA is offline</h1>
+      <p>
+        There is no connection right now, so nothing can be measured. Every colour in this
+        app comes from a measurement made on a photo you take — none of it is stored in
+        advance, and none of it can be guessed.
+      </p>
+      <p>Reconnect and reload, and everything you had measured is still on this device.</p>
+      <!--
+        ⚠️ This page exists for two reasons, and only one of them is politeness.
+
+        Chrome on desktop will not treat an app as installable unless it serves
+        something when the network is gone. Our service worker deliberately
+        caches no application pages — a cached shell would let someone be served
+        a stale build after a fix, with no way to know — so this single file is
+        the whole offline story: an honest explanation, never a stale copy of a
+        screen that would look like it still worked.
+      -->
+      <p class="note">
+        Your wardrobe, your profile and your colour portrait live in this browser, not on a
+        server. Being offline does not lose them.
+      </p>
+    </main>
+  </body>
+</html>

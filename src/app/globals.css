@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/**
+ * KROMA — design tokens.
+ *
+ * ⚠️ THE AUDIENCE FOR THIS INTERFACE CANNOT RELY ON COLOUR. Everything below
+ *    follows from that, and none of it is decoration:
+ *
+ *    · The palette is deliberately NEUTRAL. Ink on paper, one accent, nothing
+ *      that asks you to tell green from amber. Any state that matters is
+ *      carried by an icon, a word and a border style as well.
+ *    · Contrast is kept far above the minimum. Someone who loses a colour
+ *      channel is relying on lightness, so lightness has to do the work.
+ *    · Focus is loud. Keyboard and screen-reader users navigate this app a lot,
+ *      and a faint focus ring is the same as no focus ring.
+ */
+
+:root {
+  --ink: #0f172a;
+  --ink-soft: #475569;
+  --paper: #ffffff;
+  --line: #cbd5e1;
+  --muted: #64748b;
+
+  /* Touch target floor. Used phone-in-hand, often outdoors. */
+  --tap: 44px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  color: var(--ink);
+  background: var(--paper);
+  /* Slightly looser than default: long explanatory sentences are the main way
+     information reaches this user, so they have to be comfortable to read. */
+  line-height: 1.55;
+}
+
+/**
+ * Focus must be unmissable. Two rings — dark inside, light outside — so it
+ * stays visible on both pale and dark surfaces without relying on hue.
+ */
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Any interactive element reaches the touch floor, whatever its padding. */
+button,
+[role="button"],
+a[href],
+select,
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: var(--tap);
+}
+
+/* Inline links inside prose are the exception: they should not stretch a
+   paragraph. They stay underlined, which is a non-colour signal. */
+p a[href],
+li a[href] {
+  min-height: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Hex codes appear next to every colour in this app: they are data, and they
+   should read as data. */
+code {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

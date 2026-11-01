@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 90 960 360" width="100%" height="100%">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&amp;display=swap');
+      
+      .text-main {
+        font-family: 'Quicksand', 'Segoe UI', Roboto, Arial, sans-serif;
+        text-anchor: start;
+      }
+
+      /* Pulso de color para "Powered by" (4 segundos) */
+      .pulse-color {
+        animation: pulseColor 4s ease-in-out infinite;
+      }
+      @keyframes pulseColor {
+        0%, 100% { fill: #151A34; }
+        50% { fill: #6673A3; }
+      }
+
+      /* Salto abrupto con menos colores y más impactantes (4 pasos, 5 segundos cada uno) */
+      .api-strobe {
+        animation: strobeColors 20s steps(4) infinite;
+      }
+      @keyframes strobeColors {
+        0%   { fill: #00B0FF; } /* Azul celeste original */
+        25%  { fill: #FF0033; } /* Rojo vibrante */
+        50%  { fill: #FFCC00; } /* Amarillo neón */
+        75%  { fill: #D400FF; } /* Morado eléctrico */
+        100% { fill: #00B0FF; } /* Regresa al azul original */
+      }
+    </style>
+  </defs>
+
+  <!-- Texto "Powered by" con pulso de color -->
+  <text 
+    x="108" 
+    y="195" 
+    class="text-main pulse-color"
+    font-size="64" 
+    font-weight="400" 
+    fill="#151A34" 
+    letter-spacing="0.5">
+    Powered by
+  </text>
+
+  <!-- Texto "YouCam API" (Tamaño fijo de 150px, sin movimiento ni recortes) -->
+  <text 
+    x="108" 
+    y="360" 
+    class="text-main"
+    font-size="150" 
+    font-weight="600" 
+    fill="#151A34" 
+    letter-spacing="-0.5">
+    YouCam<tspan class="api-strobe"> API</tspan>
+  </text>
+</svg>
