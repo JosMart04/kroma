@@ -250,6 +250,13 @@ async function handle(req: Request) {
     const c = normalised?.color ?? raw.color;
     const rawC = raw.color;
     const pick = (a: string | undefined, b: string | undefined) => a || b || null;
+    /**
+     * The same fallback for NAMES as for colours: the light-normalised reading
+     * first, the photo as taken second. A name missing from one reading is not
+     * a reason to drop it when the other has it.
+     */
+    const knownName = (allowed: readonly string[], a: string | undefined, b: string | undefined) =>
+      [a, b].find((n): n is string => !!n && allowed.includes(n)) ?? null;
 
     const skinHex = pick(c.skin_color, rawC.skin_color);
     if (!skinHex) {
@@ -268,7 +275,7 @@ async function handle(req: Request) {
       fitzpatrick: (phototype?.fitzpatrick ?? null) as FitzpatrickType | null,
       skinHex,
       eyeHex: pick(c.eye_color, rawC.eye_color) ?? skinHex,
-      eyeName: (EYE_NAMES.includes(c.eye_color_name) ? c.eye_color_name : 'Other') as EyeColorName,
+      eyeName: (knownName(EYE_NAMES, c.eye_color_name, rawC.eye_color_name) ?? 'Other') as EyeColorName,
       eyebrowHex: pick(c.eyebrow_color, rawC.eyebrow_color) ?? skinHex,
       lipHex: pick(c.lip_color, rawC.lip_color) ?? skinHex,
       /**
@@ -278,8 +285,8 @@ async function handle(req: Request) {
        *    would put a false colour into every hair verdict.
        */
       hairHex: pick(c.hair_color, rawC.hair_color),
-      // Null rather than a guessed category when the engine names none we know.
-      hairName: HAIR_NAMES.includes(c.hair_color_name) ? (c.hair_color_name as HairColorName) : null,
+      // Null rather than a guessed category when neither reading names one we know.
+      hairName: knownName(HAIR_NAMES, c.hair_color_name, rawC.hair_color_name) as HairColorName | null,
       // ⚠️ null when the engine returned no redness entry. NOT 0 — on an
       // inverted scale 0 is the most alarming value there is.
       rednessRaw: skin?.redness?.raw_score ?? null,
