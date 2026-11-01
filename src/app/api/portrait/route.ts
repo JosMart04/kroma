@@ -44,8 +44,9 @@
  */
 import { NextResponse } from 'next/server';
 import { uploadImage, toEngineJpeg } from '@/core/youcam/upload';
-import { youcam } from '@/core/youcam/client';
+import { youcam, type SkinToneFull, type StrictnessLevel } from '@/core/youcam/client';
 import { YouCamError } from '@/core/youcam/errors';
+import { withBudget, ROUTE_BUDGET_MS } from '@/core/youcam/budget';
 import { assessConfidence, framingHints, type CaptureQuality } from '@/core/color/confidence';
 import type {
   ColorPortrait,
@@ -112,9 +113,63 @@ function unverified(quality: CaptureQuality | undefined): MeasurementConfidence 
   };
 }
 
-export async function POST(req: Request) {
+/**
+ * The colour analyser's refusals that are about HEAD ANGLE and nothing else.
+ *
+ * ⚠️ ITS DEFAULT TOLERANCE IS 10° ON EVERY AXIS, and that is the single most
+ *    common reason a selfie that looks straight-on to the person holding the
+ *    phone is refused. The documented parameter accepts 15° (`medium`), so an
+ *    angle refusal gets exactly one retry at that level — and the result is
+ *    labelled approximate, because the engine itself says a stricter level
+ *    gives more accurate attributes.
+ */
+function isAngleRefusal(code: string): boolean {
+  return (
+    code.startsWith('error_face_angle_') ||
+    code === 'error_large_face_angle' ||
+    code === 'error_face_not_forward_facing'
+  );
+}
+
+/** Read the face at the default tolerance, relaxing it once for an angle refusal. */
+async function readFace(
+  fileId: string,
+): Promise<{ face: SkinToneFull; strictness: StrictnessLevel }> {
   try {
-    const form = await req.formData();
+    return { face: await youcam.skinTone(fileId, { strictness: 'high' }), strictness: 'high' };
+  } catch (e) {
+    if (!(e instanceof YouCamError) || !isAngleRefusal(e.code)) throw e;
+    note('skin-tone at 10° tolerance', e);
+    return { face: await youcam.skinTone(fileId, { strictness: 'medium' }), strictness: 'medium' };
+  }
+}
+
+/**
+ * Downgrade a confidence when the face was only readable at the relaxed angle.
+ * Never upgrades anything, and never touches a refusal.
+ */
+function withAngleCaveat(c: MeasurementConfidence): MeasurementConfidence {
+  if (c.level === 'refuse') return c;
+  const caveat =
+    'Your head was turned a little more than 10°, so I read your face at a looser angle tolerance (15°). Treat these colours as approximate — a straight-on photo would be more exact.';
+  return { ...c, level: 'low_light', reason: c.reason ? `${c.reason} ${caveat}` : caveat };
+}
+
+export async function POST(req: Request) {
+  return withBudget(ROUTE_BUDGET_MS, () => handle(req));
+}
+
+async function handle(req: Request) {
+  try {
+    let form: FormData;
+    try {
+      form = await req.formData();
+    } catch {
+      return NextResponse.json(
+        { error: 'That request did not carry a photo in the form we expect.' },
+        { status: 400 },
+      );
+    }
     const file = form.get('photo');
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'No photo was uploaded.' }, { status: 400 });
@@ -125,7 +180,7 @@ export async function POST(req: Request) {
     const rawFileId = await uploadImage(jpeg, 'selfie.jpg');
 
     // ── Reading 1: the photo as taken. The one step that may fail. ───────
-    const raw = await youcam.skinTone(rawFileId);
+    const { face: raw, strictness } = await readFace(rawFileId);
 
     // Refuse early if there is no face: everything downstream would be noise,
     // and each further call costs a unit.
@@ -144,13 +199,14 @@ export async function POST(req: Request) {
       uploadImage(await youcam.normalizeLighting(rawFileId), 'selfie-normalised.jpg'),
     );
     const normalised = normFileId
-      ? await optional('skin-tone (normalised)', () => youcam.skinTone(normFileId))
+      ? await optional('skin-tone (normalised)', () => youcam.skinTone(normFileId, { strictness }))
       : null;
 
     const quality = normalised?.faceQuality ?? raw.faceQuality ?? undefined;
-    const confidence = normalised
+    const measured = normalised
       ? assessConfidence(raw.color.skin_color, normalised.color.skin_color, quality)
       : unverified(quality);
+    const confidence = strictness === 'high' ? measured : withAngleCaveat(measured);
 
     // The light is lying too much to keep spending units on this photo.
     if (confidence.level === 'refuse') {
@@ -215,10 +271,15 @@ export async function POST(req: Request) {
       eyeName: (EYE_NAMES.includes(c.eye_color_name) ? c.eye_color_name : 'Other') as EyeColorName,
       eyebrowHex: pick(c.eyebrow_color, rawC.eyebrow_color) ?? skinHex,
       lipHex: pick(c.lip_color, rawC.lip_color) ?? skinHex,
-      hairHex: pick(c.hair_color, rawC.hair_color) ?? '#000000',
-      hairName: (HAIR_NAMES.includes(c.hair_color_name)
-        ? c.hair_color_name
-        : 'Black') as HairColorName,
+      /**
+       * ⚠️ A CATEGORY SWATCH, AND NULL WHEN ABSENT. The engine's schema allows
+       *    seven preset hex values for hair, so this is the colour of a hair
+       *    category, not a measurement — and inventing black for a missing one
+       *    would put a false colour into every hair verdict.
+       */
+      hairHex: pick(c.hair_color, rawC.hair_color),
+      // Null rather than a guessed category when the engine names none we know.
+      hairName: HAIR_NAMES.includes(c.hair_color_name) ? (c.hair_color_name as HairColorName) : null,
       // ⚠️ null when the engine returned no redness entry. NOT 0 — on an
       // inverted scale 0 is the most alarming value there is.
       rednessRaw: skin?.redness?.raw_score ?? null,

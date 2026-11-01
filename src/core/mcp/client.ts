@@ -10,7 +10,7 @@
  *  REASONS rather than for display:
  *
  *    · `beauty`   measures the face — the colour the user cannot see.
- *                 Exercised in `/api/mcp`, and F16 exists ONLY here.
+ *                 Exercised in `/api/mcp`.
  *    · `creators` normalises the light, because without it a measured colour
  *                 lies about itself. Exercised in `/api/mcp`.
  *    · `fashion`  renders the garment onto their body. Exercised in
@@ -44,7 +44,7 @@
  *  ⚠️ NO LANGUAGE MODEL DECIDES ANYTHING HERE. The plan below is a fixed
  *     sequence, because the sequence is known: you cannot render a garment onto
  *     a face you have not measured. An LLM choosing the order would add a
- *     failure mode and no capability. See `docs/04-POLITICA-LLM.md`.
+ *     failure mode and no capability. See `docs/04-LLM-POLICY.md`.
  *
  *  ⚠️ SERVER-ONLY. It carries the API key. Importing it from a client component
  *     would ship the key to the browser — `scripts/check-boundaries.mjs` will
@@ -62,12 +62,48 @@ export const MCP_SERVERS = {
 
 export type McpServer = keyof typeof MCP_SERVERS;
 
-/** Verified against the live servers on 13 Aug 2026: 46 · 18 · 34 tools. */
+/** Verified against the live servers' `tools/list` on 31 Oct 2026: 50 · 19 · 37 tools. */
 export const TOOL_COUNTS: Record<McpServer, number> = {
-  beauty: 46,
-  fashion: 18,
-  creators: 34,
+  beauty: 50,
+  fashion: 19,
+  creators: 37,
 };
+
+/**
+ * Compare tool names the way a human reads them, ignoring case and separators.
+ *
+ * ⚠️ THE DOCS AND THE SERVERS SPELL THE SAME TOOLS DIFFERENTLY. The live
+ *    servers answer `AI-Clothes-Virtual-Try-On`; the documentation lists
+ *    `AI_Clothes_Virtual_Try_On`; one tool is `AI-Skin-simulation` with a
+ *    lowercase word. A name that matches only one spelling breaks the day the
+ *    other one ships.
+ */
+export function sameToolName(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[-_\s]/g, '');
+  return norm(a) === norm(b);
+}
+
+/** Tool names per server, kept for the life of a warm function instance. */
+const toolNameCache = new Map<McpServer, { names: string[]; at: number }>();
+const TOOL_NAME_TTL_MS = 10 * 60_000;
+
+/**
+ * The exact name a server uses for a tool we know by another spelling, or null.
+ * One `tools/list` per server per warm instance; free, it is protocol metadata.
+ */
+async function resolveToolName(
+  client: Client,
+  server: McpServer,
+  wanted: string,
+): Promise<string | null> {
+  let cached = toolNameCache.get(server);
+  if (!cached || Date.now() - cached.at > TOOL_NAME_TTL_MS) {
+    const listed = await withTimeout(client.listTools(), CALL_TIMEOUT_MS, `${server}/tools/list`);
+    cached = { names: (listed.tools ?? []).map((t) => t.name), at: Date.now() };
+    toolNameCache.set(server, cached);
+  }
+  return cached.names.find((n) => n === wanted) ?? cached.names.find((n) => sameToolName(n, wanted)) ?? null;
+}
 
 /**
  * ⚠️ A HANDSHAKE PLUS A TOOL CALL IS SLOWER THAN A REST POST, and this ceiling
@@ -225,7 +261,7 @@ export class ToolNotOffered extends Error {
 /**
  * Ask the server what it has, pick the tool that matches, call it — one session.
  *
- * ⚠️ WHY DISCOVERY AND NOT A CONSTANT. `docs/entrega/mcp.md` verified the tool
+ * ⚠️ WHY DISCOVERY AND NOT A CONSTANT. `docs/submission/mcp.md` verified the tool
  *    names on `beauty` and `fashion` against a live `tools/list`. It verified
  *    NONE on `creators`. The names floating around our own notes for that server
  *    come from planning documents, not from the server.
@@ -272,10 +308,13 @@ export async function callDiscoveredTool(
 export async function callTool({ server, tool, args }: ToolCall): Promise<unknown> {
   const client = await connect(server);
   try {
+    // The server's own spelling of the name, whichever separator it uses today.
+    const name = await resolveToolName(client, server, tool);
+    if (!name) throw new Error(`"${server}" offers no tool named like ${tool}`);
     const result = await withTimeout(
-      client.callTool({ name: tool, arguments: args }),
+      client.callTool({ name, arguments: args }),
       CALL_TIMEOUT_MS,
-      `${server}/${tool}`,
+      `${server}/${name}`,
     );
     /**
      * ⚠️ `isError` IS NOT ENOUGH, AND TRUSTING IT SHIPPED A LIE.
@@ -304,19 +343,21 @@ export async function callTool({ server, tool, args }: ToolCall): Promise<unknow
   }
 }
 
-/** The tools this product uses, by server. Names verified against tools/list. */
+/**
+ * The tools this product uses, by server. Names as the live servers spell them
+ * (verified against tools/list on 31 Oct 2026); `callTool` also accepts the
+ * documentation's underscore spelling.
+ */
 export const TOOLS = {
   facialColour: { server: 'beauty', tool: 'AI-Facial-Color-Tones-Analyzer' },
   fitzpatrick: { server: 'beauty', tool: 'AI-Fitzpatrick-Skin-Type-Analysis' },
   skinAnalysis: { server: 'beauty', tool: 'AI-Skin-Analysis' },
   clothTryOn: { server: 'fashion', tool: 'AI-Clothes-Virtual-Try-On' },
   /**
-   * ⚠️ F16 EXISTS ONLY HERE. `/task/makeup` is a 404 over REST and "makeup"
-   *    appears in none of the 20 SKUs of `/credit/feature-cost`, which is why
-   *    this feature was declared impossible and cut. It was not: the tool is on
-   *    the MCP server, it accepts a `src_file_id` from the same File API, and
-   *    its `concealer` category takes an arbitrary hex colour — which is
-   *    exactly what F15 computes.
+   * The same engine as REST `/task/makeup-vto`, with the same `effects`
+   * payload. F16 calls it over REST (`youcam.makeupVto`), because the redness
+   * it measures before and after must come from one transport; it is listed
+   * here so the MCP surface stays documented in one place.
    */
   makeup: { server: 'beauty', tool: 'AI-Makeup-Virtual-Try-On' },
 } as const satisfies Record<string, { server: McpServer; tool: string }>;

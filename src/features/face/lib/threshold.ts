@@ -1,29 +1,29 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  ETAPA B — UMBRALES CONTRA GRIS NEUTRO, EN LOS TRES EJES (F1)
+ *  STAGE B — THRESHOLDS AGAINST NEUTRAL GREY, ON ALL THREE AXES (F1)
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P2.
+ *  ⛔ OWNER: face slice.
  *
- *  🔑 ESTA ES LA ETAPA QUE DE VERDAD MIDE, y hubo que rediseñarla.
+ *  🔑 THIS IS THE STAGE THAT ACTUALLY MEASURES.
  *
- *  El primer diseño corría UNA escalera, sobre el eje que hubiera elegido el
- *  ordenamiento. El arnés de autoconsistencia (`DiagnosticPanel`) demostró que
- *  eso no vale: el ordenamiento solo separa severidades ≥ 0,9, así que por
- *  debajo de ahí no aportaba ningún eje y la escalera medía donde no tocaba.
+ *  Running ONE staircase on the axis the arrangement chose does not work: the
+ *  self-consistency harness shows the arrangement only separates severities
+ *  ≥ 0.9, so below that it contributes no axis and the staircase would measure
+ *  in the wrong place.
  *
- *  No era un fallo de código sino una propiedad conocida de los tests de
- *  ordenamiento — por eso existe la versión desaturada de Lanthony. Pero para
- *  nosotros era inaceptable: `CLAUDE.md` dice que más de la mitad de nuestros
- *  usuarios son deuteranómalos LEVES, y habrían salido todos como normales.
+ *  It is not a code bug but a known property of arrangement tests — it is why
+ *  the desaturated Lanthony version exists. For this product it would be
+ *  unacceptable: more than half of our users are MILD deuteranomals, and they
+ *  would all come out as normal.
  *
- *  Solución: se miden los TRES ejes, entrelazados. El eje en el que el usuario
- *  necesita más desplazamiento para ver algo es su eje averiado. Un observador
- *  normal da los tres umbrales parecidos; uno con deficiencia da uno claramente
- *  peor. Y eso funciona a cualquier severidad, no solo en las extremas.
+ *  So all THREE axes are measured, interleaved. The axis on which the user
+ *  needs the largest offset to see anything is their impaired axis. A normal
+ *  observer gives three similar thresholds; one with a deficiency gives one
+ *  clearly worse. And that works at any severity, not only at the extremes.
  *
- *  Entrelazadas y no seguidas para que el usuario no pueda aprenderse una
- *  escalera y anticipar: cada ensayo puede venir de cualquiera de las tres.
+ *  Interleaved rather than one after another so the user cannot learn a
+ *  staircase and anticipate it: each trial may come from any of the three.
  */
 import { inGamut } from 'culori';
 import type { CVDType } from '@/core/contracts/types';
@@ -40,26 +40,26 @@ import {
 
 export { JND_DELTA_E } from './observer';
 
-/** Por debajo de esto el desplazamiento se pierde en el redondeo a 8 bits. */
+/** Below this the offset is lost in the 8-bit rounding. */
 const MIN_OFFSET = 0.5;
 
-/** Reversiones antes de dar una escalera por buena. */
+/** Reversals before a staircase is considered done. */
 const TARGET_REVERSALS = 6;
 
-/** Se promedian las últimas, ya en régimen estable. */
+/** The last ones are averaged, once the staircase has settled. */
 const AVERAGED_REVERSALS = 4;
 
-/** Paso grande hasta la primera reversión (llegar rápido), fino después. */
+/** Coarse step until the first reversal (to get there fast), fine after. */
 const COARSE_FACTOR = 0.6;
 const FINE_FACTOR = 0.85;
 
 /**
- * Tope de seguridad por escalera: no dejamos al usuario encerrado ahí.
+ * Safety cap per staircase: the user is never trapped in one.
  *
- * Con margen suficiente para el peor descenso honesto. Quien acierta siempre
- * no genera reversiones, así que el paso se queda en el factor grueso y hacen
- * falta unos 18 ensayos solo para bajar de 25 al suelo; con el tope pegado a
- * esa cifra, el mejor observador posible se quedaba sin medir.
+ * With enough margin for the worst honest descent. Someone who is always
+ * right generates no reversals, so the step stays at the coarse factor and it
+ * takes about 18 trials just to get from 25 to the floor; with the cap right at
+ * that figure, the best possible observer would go unmeasured.
  */
 const MAX_TRIALS_PER_AXIS = 26;
 
@@ -75,7 +75,7 @@ function offsetInGamut(axisDeg: number, offset: number): boolean {
   );
 }
 
-/** El desplazamiento más grande que cabe en sRGB sobre este eje. */
+/** The largest offset that fits in sRGB on this axis. */
 export function maxOffset(axisDeg: number): number {
   let hi = 0;
   for (let o = 1; o <= 60; o += 1) {
@@ -90,24 +90,24 @@ export interface StaircaseState {
   axisDeg: number;
   offset: number;
   consecutiveCorrect: number;
-  /** Desplazamiento en cada cambio de dirección. */
+  /** Offset at each change of direction. */
   reversals: number[];
   lastDirection: 'up' | 'down' | null;
   trials: number;
-  /** Veces que quiso bajar estando ya en el suelo: lo ve todo. */
+  /** Times it wanted to go down while already at the floor: they see everything. */
   floorHits: number;
-  /** Veces que quiso subir estando ya en el techo: no ve nada. */
+  /** Times it wanted to go up while already at the ceiling: they see nothing. */
   ceilingHits: number;
   done: boolean;
 }
 
 /**
- * Toques contra cada extremo antes de dar la escalera por resuelta ahí.
+ * Hits against each extreme before the staircase is considered resolved there.
  *
- * Asimétrico a propósito. Llegar al SUELO es una afirmación modesta —"lo
- * distingue hasta donde la pantalla llega"— y con una vez basta. Llegar al
- * TECHO afirma que no ve nada ni con el mayor desplazamiento que cabe en sRGB,
- * que es mucho decir, y un despiste al principio no debería bastar.
+ * Asymmetric on purpose. Reaching the FLOOR is a modest claim — "they can tell
+ * it apart as far as the screen goes" — and once is enough. Reaching the
+ * CEILING claims they see nothing even with the largest offset that fits in
+ * sRGB, which is a lot to say, and one early slip should not be enough.
  */
 const FLOOR_HITS_TO_STOP = 1;
 const CEILING_HITS_TO_STOP = 2;
@@ -129,8 +129,8 @@ function createStaircase(axisKey: AxisKey): StaircaseState {
 }
 
 /**
- * Avanza una escalera con el resultado de un ensayo.
- * Puro: mismo estado + misma respuesta = mismo estado siguiente, siempre.
+ * Advances a staircase with the result of one trial.
+ * Pure: same state + same answer = same next state, always.
  */
 export function advanceStaircase(state: StaircaseState, correct: boolean): StaircaseState {
   if (state.done) return state;
@@ -145,24 +145,26 @@ export function advanceStaircase(state: StaircaseState, correct: boolean): Stair
 
   if (correct) {
     consecutiveCorrect += 1;
-    // 2-abajo: hacen falta DOS aciertos seguidos para acercarse al gris.
+    // 2-down: TWO correct answers in a row are needed to move closer to grey.
     if (consecutiveCorrect >= 2) {
       consecutiveCorrect = 0;
       direction = 'down';
-      // ⚠️ TOPAR CONTRA UN EXTREMO NO ES UNA REVERSIÓN, Y ESO COLGABA EL TEST.
+      // ⚠️ HITTING AN EXTREME IS NOT A REVERSAL, AND TREATING IT AS NONE HANGS
+      // THE TEST.
       //
-      // Quien discrimina muy bien acierta siempre, la escalera pide bajar una
-      // y otra vez, el suelo la clava en su sitio y NUNCA cambia de dirección:
-      // cero reversiones, se agotan los intentos y acababa en la pantalla de
-      // negativa. Es decir, rechazábamos justo a quien mejor ve.
+      // Someone who discriminates very well is always right, the staircase asks
+      // to go down again and again, the floor pins it in place and it NEVER
+      // changes direction: zero reversals, the trials run out, and they land on
+      // the refusal screen. In other words, rejecting exactly the person who
+      // sees best.
       //
-      // Topar contra el suelo no es un fallo de convergencia: es la respuesta.
-      // Su umbral está en el suelo o por debajo, y con eso basta.
+      // Hitting the floor is not a convergence failure: it is the answer.
+      // Their threshold is at the floor or below, and that is enough.
       if (offset <= MIN_OFFSET) floorHits += 1;
       offset = Math.max(MIN_OFFSET, offset * factor);
     }
   } else {
-    // 1-arriba: un solo fallo basta para alejarse.
+    // 1-up: a single mistake is enough to move away.
     consecutiveCorrect = 0;
     direction = 'up';
     if (offset >= ceiling) ceilingHits += 1;
@@ -191,11 +193,11 @@ export function advanceStaircase(state: StaircaseState, correct: boolean): Stair
   };
 }
 
-// ── El conjunto de tres escaleras entrelazadas ────────────────────────────
+// ── The set of three interleaved staircases ───────────────────────────────
 
 export interface StaircaseSet {
   staircases: Record<AxisKey, StaircaseState>;
-  /** Eje del ensayo que se está mostrando ahora. */
+  /** Axis of the trial being shown now. */
   current: AxisKey;
   done: boolean;
 }
@@ -212,7 +214,7 @@ export function createStaircaseSet(): StaircaseSet {
   };
 }
 
-/** Siguiente eje pendiente, en rueda. Determinista. */
+/** Next pending axis, round-robin. Deterministic. */
 function nextAxis(set: StaircaseSet, from: AxisKey): AxisKey | null {
   const start = AXIS_KEYS.indexOf(from);
   for (let i = 1; i <= AXIS_KEYS.length; i++) {
@@ -252,24 +254,24 @@ export function setProgress(set: StaircaseSet): { done: number; total: number } 
   return { done, total };
 }
 
-// ── Lectura de umbrales ───────────────────────────────────────────────────
+// ── Reading thresholds ────────────────────────────────────────────────────
 
 export interface ThresholdResult {
-  /** Desplazamiento umbral, en unidades a*b*. */
+  /** Threshold offset, in a*b* units. */
   threshold: number;
-  /** Dispersión de las reversiones promediadas. Alta = respondió errático. */
+  /** Spread of the averaged reversals. High = erratic answers. */
   spread: number;
   converged: boolean;
   trials: number;
-  /** Reversiones logradas sobre las que se querían promediar, 0–1. */
+  /** Reversals achieved over those meant to be averaged, 0–1. */
   reliability: number;
-  /** El umbral se pegó al techo del gamut: no se pudo medir nada. */
+  /** The threshold stuck to the gamut ceiling: nothing could be measured. */
   saturated: boolean;
 }
 
 export function readThreshold(state: StaircaseState): ThresholdResult {
-  // Umbral en el suelo: discrimina hasta donde la pantalla llega. Es una
-  // medición válida y completa, no una escalera a medias.
+  // Threshold at the floor: they discriminate as far as the screen goes. A
+  // valid, complete measurement, not a half-finished staircase.
   if (state.floorHits >= FLOOR_HITS_TO_STOP) {
     return {
       threshold: MIN_OFFSET,
@@ -281,8 +283,8 @@ export function readThreshold(state: StaircaseState): ThresholdResult {
     };
   }
 
-  // Umbral en el techo: ni con el máximo desplazamiento que cabe en sRGB lo
-  // ve. Aquí sí hay que declararlo no medible.
+  // Threshold at the ceiling: not even the largest offset that fits in sRGB
+  // is seen. This one has to be declared unmeasurable.
   if (state.ceilingHits >= CEILING_HITS_TO_STOP) {
     return {
       threshold: maxOffset(state.axisDeg),
@@ -295,22 +297,22 @@ export function readThreshold(state: StaircaseState): ThresholdResult {
   }
 
   const used = state.reversals.slice(-AVERAGED_REVERSALS);
-  // Si no hubo reversiones, el umbral es donde se quedó: mejor que fingir.
+  // With no reversals, the threshold is where it stopped: better than pretending.
   const sample = used.length > 0 ? used : [state.offset];
   const mean = sample.reduce((a, b) => a + b, 0) / sample.length;
   const variance = sample.reduce((acc, v) => acc + (v - mean) ** 2, 0) / sample.length;
 
   /**
-   * ⚠️ CON MENOS DE DOS REVERSIONES LA DISPERSIÓN ES 0, Y ESO MIENTE.
+   * ⚠️ WITH FEWER THAN TWO REVERSALS THE SPREAD IS 0, AND THAT LIES.
    *
-   * Lo cazó el arnés recorriendo la interfaz de verdad: alguien contestando al
-   * azar nunca genera reversiones, así que se promediaba UNA muestra, la
-   * varianza salía 0 y el sistema lo leía como "consistencia perfecta". Se le
-   * daba un "sin deficiencia detectada" con un 68% de confianza a quien no
-   * había mirado la pantalla.
+   * The harness caught it walking the real interface: someone answering at
+   * random never generates reversals, so ONE sample was averaged, the variance
+   * came out 0 and the system read it as "perfect consistency" — handing a
+   * "no deficiency detected" at 68% confidence to someone who had not looked at
+   * the screen.
    *
-   * Sin reversiones no es que la medida sea estable: es que NO HAY MEDIDA. La
-   * incertidumbre honesta es del tamaño del propio umbral.
+   * Without reversals the measurement is not stable: THERE IS NO MEASUREMENT.
+   * The honest uncertainty is the size of the threshold itself.
    */
   const spread = used.length >= 2 ? Math.sqrt(variance) : mean;
 
@@ -338,7 +340,7 @@ export function readThreshold(state: StaircaseState): ThresholdResult {
     converged: state.reversals.length >= AVERAGED_REVERSALS,
     trials: state.trials,
     reliability: Math.min(1, state.reversals.length / AVERAGED_REVERSALS),
-    // El 0,95 deja margen al redondeo del paso multiplicativo.
+    // The 0.95 leaves room for the rounding of the multiplicative step.
     saturated: mean >= maxOffset(state.axisDeg) * 0.95,
   };
 }
@@ -353,21 +355,21 @@ export function readSet(set: StaircaseSet): ThresholdSet {
   };
 }
 
-// ── Ensayos ───────────────────────────────────────────────────────────────
+// ── Trials ────────────────────────────────────────────────────────────────
 
 export interface Trial {
-  /** Cuatro colores; tres iguales y uno desplazado. */
+  /** Four colours; three identical and one shifted. */
   patches: string[];
-  /** Cuál es el distinto. Nunca se muestra: es la respuesta. */
+  /** Which one is different. Never shown: it is the answer. */
   oddIndex: number;
 }
 
 /**
- * Monta un ensayo del eje que toque. La posición del parche distinto se sortea
- * cada vez, o el usuario aprendería la posición en vez de mirar el color.
+ * Builds a trial for the current axis. The position of the odd patch is drawn
+ * every time, or the user would learn the position instead of looking at the colour.
  *
- * El generador es inyectable para que el arnés de diagnóstico pueda reproducir
- * una sesión exacta.
+ * The random generator is injectable so the diagnostic harness can reproduce
+ * an exact session.
  */
 export function buildTrial(set: StaircaseSet, rng: () => number = Math.random): Trial {
   const state = set.staircases[set.current];
@@ -385,24 +387,24 @@ export function buildTrial(set: StaircaseSet, rng: () => number = Math.random): 
   };
 }
 
-// ── Umbral → severidad ────────────────────────────────────────────────────
+// ── Threshold → severity ──────────────────────────────────────────────────
 
 /**
- * Convierte el umbral medido en severidad, SIN constantes de calibración.
+ * Converts the measured threshold into a severity, WITHOUT calibration constants.
  *
- * 🔑 EL RAZONAMIENTO, que es lo que hace que no haya que inventar nada:
+ * 🔑 THE REASONING, which is what means nothing has to be invented:
  *
- *    Una persona detecta un desplazamiento cuando, YA DEFORMADO POR SU PROPIA
- *    VISIÓN, sigue midiendo al menos un JND. Así que la severidad que le
- *    corresponde es aquella para la que el modelo predice exactamente eso:
+ *    A person detects an offset when, ALREADY DISTORTED BY THEIR OWN VISION,
+ *    it still measures at least one JND. So the severity that fits them is the
+ *    one for which the model predicts exactly that:
  *
- *        ΔE( simular(gris + umbral, s), simular(gris, s) ) = 1
+ *        ΔE( simulate(grey + threshold, s), simulate(grey, s) ) = 1
  *
- *    Se barren los 11 pasos de Machado buscando el cruce y se interpola.
+ *    The 11 Machado steps are swept for the crossing, then interpolated.
  *
- *    Comprobación de cordura: alguien con visión normal detecta hasta el JND,
- *    o sea umbral ≈ 1. A severidad 0 la matriz es la identidad, así que el
- *    ΔE percibido ≈ 1 y el cruce cae en s = 0. Sale solo, sin ajustes.
+ *    Sanity check: someone with normal vision detects down to the JND, i.e.
+ *    threshold ≈ 1. At severity 0 the matrix is the identity, so the perceived
+ *    ΔE ≈ 1 and the crossing lands at s = 0. It falls out with no tuning.
  */
 export function severityFromThreshold(
   type: CVDType,
@@ -415,8 +417,8 @@ export function severityFromThreshold(
     perceivedOffsetDeltaE({ type, severity: s }, axisDeg, threshold),
   );
 
-  // A severidad 0 ya percibe menos de un JND: el umbral medido está por debajo
-  // del suelo de percepción. No hay evidencia de deficiencia.
+  // At severity 0 they already perceive less than one JND: the measured
+  // threshold is below the perception floor. No evidence of a deficiency.
   if (perceived[0] <= JND_DELTA_E) return 0;
 
   for (let i = 1; i < SEVERITY_STEPS.length; i++) {
@@ -429,7 +431,7 @@ export function severityFromThreshold(
     }
   }
 
-  // Ni con severidad máxima el modelo comprime tanto: el usuario necesita un
-  // desplazamiento mayor del que Machado sabe representar. Se topa en 1.
+  // Not even at maximum severity does the model compress that much: the user
+  // needs a larger offset than Machado can represent. Capped at 1.
   return 1;
 }

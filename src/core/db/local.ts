@@ -9,8 +9,8 @@
  *  WHY, and it is not laziness:
  *
  *  The rules require the project to be available "free of charge and without
- *  any restriction" to the judges until 31 August. Consider what a login does:
- *  a judge opens the link on a Tuesday night, meets a sign-up form, creates an
+ *  any restriction" to the judges until the end of judging. Consider what a
+ *  login does: a judge opens the link on a Tuesday night, meets a sign-up form, creates an
  *  account, gets in — and every screen is empty anyway, because the wardrobe is
  *  theirs and they have not photographed anything. All the form bought was a
  *  reason to close the tab.
@@ -52,12 +52,12 @@ let _db: Promise<IDBPDatabase<CBFDatabase>> | null = null;
 
 function db() {
   if (typeof indexedDB === 'undefined') {
-    throw new Error('El almacenamiento local solo existe en el navegador. Este módulo no se usa en el servidor.');
+    throw new Error('Local storage only exists in the browser. This module is never used on the server.');
   }
   _db ??= openDB<CBFDatabase>('colorblindfit', 2, {
-    // ⚠️ Migración por versión, no incondicional: quien ya tenga la v1 abierta
-    // en su navegador —cualquiera que probara la app antes de hoy— llegaría aquí
-    // con los tres almacenes ya creados, y crearlos otra vez lanza.
+    // ⚠️ Migrate by version, not unconditionally: a browser that already holds
+    // v1 arrives here with the three stores created, and creating them again
+    // throws.
     upgrade(d, oldVersion) {
       if (oldVersion < 1) {
         d.createObjectStore('profile', { keyPath: 'id' });
@@ -73,7 +73,7 @@ function db() {
   return _db;
 }
 
-// ── Banderas internas ────────────────────────────────────────────────────
+// ── Internal flags ───────────────────────────────────────────────────────
 export async function getMeta(key: string): Promise<string | null> {
   return (await (await db()).get('meta', key)) ?? null;
 }
@@ -82,7 +82,7 @@ export async function setMeta(key: string, value: string): Promise<void> {
   await (await db()).put('meta', value, key);
 }
 
-// ── Perfil ───────────────────────────────────────────────────────────────
+// ── Profile ──────────────────────────────────────────────────────────────
 export async function getProfile(): Promise<CVDProfile | null> {
   return (await (await db()).get('profile', 'me'))?.cvd ?? null;
 }
@@ -103,7 +103,7 @@ export async function savePortrait(portrait: ColorPortrait): Promise<void> {
   await d.put('profile', { id: 'me', cvd: cur?.cvd ?? null, portrait });
 }
 
-// ── Armario ──────────────────────────────────────────────────────────────
+// ── Wardrobe ─────────────────────────────────────────────────────────────
 export async function listGarments(): Promise<Garment[]> {
   return (await db()).getAll('garments');
 }
@@ -122,7 +122,7 @@ export async function deleteGarment(id: string): Promise<void> {
   await d.delete('images', id);
 }
 
-// ── Imágenes ─────────────────────────────────────────────────────────────
+// ── Images ───────────────────────────────────────────────────────────────
 
 /**
  * The key the user's own body photo is stored under, shared by every screen
@@ -138,9 +138,9 @@ export async function deleteGarment(id: string): Promise<void> {
 export const BODY_PHOTO_KEY = 'me-body';
 
 /**
- * ⚠️ Guarda SIEMPRE el binario, nunca la URL de YouCam: caduca a las 2 horas.
- * Si guardas el enlace, el demo se cae en cámara y cualquier juez que abra la
- * app entre el 18 y el 31 de agosto verá un error.
+ * ⚠️ ALWAYS store the binary, never the YouCam URL: it expires after 2 hours.
+ * Store the link and the demo breaks on camera, and any judge who opens the
+ * app during the judging period sees an error.
  */
 export async function saveImage(id: string, blob: Blob): Promise<void> {
   await (await db()).put('images', blob, id);

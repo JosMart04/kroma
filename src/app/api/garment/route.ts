@@ -41,6 +41,7 @@ import sharp from 'sharp';
 import { uploadImage, toEngineJpeg } from '@/core/youcam/upload';
 import { youcam } from '@/core/youcam/client';
 import { YouCamError } from '@/core/youcam/errors';
+import { withBudget, ROUTE_BUDGET_MS } from '@/core/youcam/budget';
 import { measureDominantColor, type ColorMeasurement } from '@/core/color/measure';
 import { nameColor } from '@/core/color/naming';
 import { assessGarmentConfidence } from '@/core/color/confidence';
@@ -135,6 +136,10 @@ function measure(raster: Raster, mask: Uint8Array | null): ColorMeasurement {
 }
 
 export async function POST(req: Request) {
+  return withBudget(ROUTE_BUDGET_MS, () => handle(req));
+}
+
+async function handle(req: Request) {
   try {
     const form = await req.formData();
     const file = form.get('photo');

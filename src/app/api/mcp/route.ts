@@ -34,12 +34,13 @@
  *
  *  ⚠️ NO LANGUAGE MODEL PLANS THIS. The order is fixed because it is known: you
  *     cannot analyse a face you have not uploaded. A model choosing the sequence
- *     would add a failure mode and no capability. See `docs/04-POLITICA-LLM.md`.
+ *     would add a failure mode and no capability. See `docs/04-LLM-POLICY.md`.
  */
 import { NextResponse } from 'next/server';
 import { uploadImage, toEngineJpeg } from '@/core/youcam/upload';
-import { youcam } from '@/core/youcam/client';
+import { youcam, DEFAULT_STRICTNESS } from '@/core/youcam/client';
 import { YouCamError } from '@/core/youcam/errors';
+import { withBudget, ROUTE_BUDGET_MS } from '@/core/youcam/budget';
 import {
   callDiscoveredTool,
   callTool,
@@ -177,6 +178,10 @@ async function withDiscoveredFallback<T>(
 }
 
 export async function POST(req: Request) {
+  return withBudget(ROUTE_BUDGET_MS, () => handle(req));
+}
+
+async function handle(req: Request) {
   const steps: Step[] = [];
   try {
     const form = await req.formData();
@@ -204,7 +209,7 @@ export async function POST(req: Request) {
      *    the same normalisation the confidence layer runs in F4: without it a
      *    measured colour lies about itself, and our user cannot tell.
      *
-     *    The tool name is DISCOVERED, not hardcoded. `docs/entrega/mcp.md`
+     *    The tool name is DISCOVERED, not hardcoded. `docs/submission/mcp.md`
      *    verified names on `beauty` and `fashion` against a live `tools/list`
      *    and verified none on `creators` — so asking is the only honest way to
      *    reach this server.
@@ -221,7 +226,13 @@ export async function POST(req: Request) {
     const colours = await withFallback(
       'Measure the face',
       TOOLS.facialColour,
-      { request: { src_file_id: fileId } },
+      /**
+       * ⚠️ THE STRICTNESS IS PINNED ON BOTH TRANSPORTS. The MCP schema declares
+       *    its default as `null` while REST documents `high`; sending the same
+       *    explicit level removes one possible source of the two transports
+       *    disagreeing about the same face.
+       */
+      { request: { src_file_id: fileId, face_angle_strictness_level: DEFAULT_STRICTNESS } },
       () => youcam.skinTone(fileId),
       steps,
     );

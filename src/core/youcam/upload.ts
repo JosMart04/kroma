@@ -1,20 +1,20 @@
 /**
- * Subida de ficheros a YouCam — LA TRAMPA NÚMERO UNO.
- * ⛔ PROPIETARIO: P1. Todos consumen `uploadImage()`. Nadie reimplementa esto.
+ * Uploading files to YouCam — TRAP NUMBER ONE.
+ * ⛔ OWNER: core. Everyone consumes `uploadImage()`. Nobody reimplements it.
  */
 import { YOUCAM_BASE_URL, ENDPOINTS } from './config';
 
 /**
- * ⚠️⚠️ LEE ESTO ANTES DE TOCAR NADA ⚠️⚠️
+ * ⚠️⚠️ READ THIS BEFORE TOUCHING ANYTHING ⚠️⚠️
  *
- * Llamar a la File API **NO SUBE EL FICHERO**. Solo devuelve una URL
- * pre-firmada de S3 que es el DESTINO. Hay que hacer un PUT a esa URL con el
- * binario. Si te saltas el PUT, la tarea posterior falla con
- * `500 unknown_internal_error` o `404 Not Found`, ninguno de los cuales dice
- * qué ha pasado.
+ * Calling the File API **DOES NOT UPLOAD THE FILE**. It only returns a
+ * pre-signed S3 URL, which is the DESTINATION. The binary must then be PUT to
+ * that URL. Skip the PUT and the next task fails with
+ * `500 unknown_internal_error` or a bare `404 Not Found`, neither of which says
+ * what happened.
  *
- * Es la primera hora perdida de todo equipo que integra esta API.
- * Por eso existe esta función: para que nadie del equipo la pierda.
+ * It is the first hour every team integrating this API loses. This function
+ * exists so nobody on the team loses it.
  */
 export async function uploadImage(
   buffer: Buffer,
@@ -22,13 +22,13 @@ export async function uploadImage(
   contentType = 'image/jpeg',
   apiKey = process.env.YOUCAM_API_KEY,
 ): Promise<string> {
-  if (!apiKey) throw new Error('Falta YOUCAM_API_KEY');
+  if (!apiKey) throw new Error('YOUCAM_API_KEY is not set');
 
-  // ── Paso 1: pedir destino ────────────────────────────────────────────
+  // ── Step 1: ask for a destination ─────────────────────────────────────
   const initRes = await fetch(`${YOUCAM_BASE_URL}${ENDPOINTS.file}`, {
     method: 'POST',
     headers: {
-      // ⚠️ el espacio tras "Bearer" es obligatorio
+      // ⚠️ the space after "Bearer" is mandatory
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
@@ -37,15 +37,15 @@ export async function uploadImage(
     }),
   });
 
-  if (!initRes.ok) throw new Error(`File API falló: ${initRes.status} ${await initRes.text()}`);
+  if (!initRes.ok) throw new Error(`File API failed: ${initRes.status} ${await initRes.text()}`);
 
   const init = await initRes.json();
   const file = init?.data?.files?.[0];
   const fileId: string | undefined = file?.file_id;
   const req = file?.requests?.[0];
-  if (!fileId || !req?.url) throw new Error('Respuesta inesperada de la File API');
+  if (!fileId || !req?.url) throw new Error('Unexpected response from the File API');
 
-  // ── Paso 2: SUBIR DE VERDAD ← el paso que todo el mundo olvida ───────
+  // ── Step 2: ACTUALLY UPLOAD ← the step everybody forgets ─────────────
   const putRes = await fetch(req.url, {
     method: req.method ?? 'PUT',
     headers: {
@@ -58,8 +58,8 @@ export async function uploadImage(
 
   if (!putRes.ok) {
     throw new Error(
-      `El PUT a S3 falló (${putRes.status}). Sin este paso la tarea dará ` +
-        `unknown_internal_error y perderás una hora buscando en el sitio equivocado.`,
+      `The PUT to S3 failed (${putRes.status}). Without this step the task returns ` +
+        `unknown_internal_error and you lose an hour looking in the wrong place.`,
     );
   }
 
@@ -67,55 +67,59 @@ export async function uploadImage(
 }
 
 /**
- * Prepara una imagen para el motor.
+ * Prepares an image for the engine.
  *
- * ⚠️ TRES DETALLES QUE ROMPEN SI SE OMITEN:
+ * ⚠️ THREE DETAILS THAT BREAK THINGS IF LEFT OUT:
  *
- * 1. `rotate()` sin argumentos — aplica la orientación EXIF y borra la etiqueta.
- *    ⚠️ SIN ESTO, TODA FOTO VERTICAL DE MÓVIL LLEGA GIRADA 90°. Las cámaras de
- *    teléfono casi nunca rotan los píxeles: guardan el sensor tal cual y anotan
- *    la orientación en EXIF, y quien lee el fichero es el que debe aplicarla.
- *    El motor no la aplica. El síntoma es `error_no_face` o `error_pose` sobre
- *    una foto que a ti se te ve perfecta en el visor de tu sistema —que sí lee
- *    el EXIF—, así que buscarías el fallo en el encuadre y no en el fichero,
- *    gastando unidades en cada intento.
- *    ⚠️ VA ANTES DE `resize`: si no, se redimensiona sobre el lado equivocado.
+ * 1. `rotate()` with no arguments — applies the EXIF orientation and drops the tag.
+ *    ⚠️ WITHOUT IT, EVERY PORTRAIT PHONE PHOTO ARRIVES ROTATED 90°. Phone
+ *    cameras rarely rotate the pixels: they store the sensor as-is and note the
+ *    orientation in EXIF, and whoever reads the file must apply it. The engine
+ *    does not. The symptom is `error_no_face` or `error_pose` on a photo that
+ *    looks perfect in your own viewer — which does read EXIF — so you would
+ *    look for the fault in the framing rather than the file, spending units on
+ *    every attempt.
+ *    ⚠️ IT GOES BEFORE `resize`: otherwise the wrong side gets resized.
  *
- * 2. `flatten({background:'#FFFFFF'})` — AI_Photo_Background_Removal devuelve
- *    PNG con canal alfa, y cloth-v4 prefiere JPG con fondo neutro. Sin aplanar,
- *    el alfa se rasteriza a NEGRO y el try-on sale desastroso.
+ * 2. `flatten({background:'#FFFFFF'})` — background removal returns a PNG with
+ *    an alpha channel, and the try-on prefers JPG on a neutral background.
+ *    Without flattening, alpha rasterises to BLACK and the try-on is a disaster.
  *
- * 3. `chromaSubsampling: '4:4:4'` — el 4:2:0 por defecto promedia la
- *    crominancia en bloques de 2x2 píxeles. En una aplicación cuyo entregable
- *    ES EL COLOR MEDIDO, eso es meter ruido justo en la variable que vendemos.
- *    Cuesta un flag y es un párrafo del README.
+ * 3. `chromaSubsampling: '4:4:4'` — the default 4:2:0 averages chroma over
+ *    2x2 pixel blocks. In an app whose deliverable IS THE MEASURED COLOUR, that
+ *    injects noise into exactly the variable we sell. It costs one flag.
  *
- * 🔒 De propina: sharp NO copia los metadatos salvo que se le pida
- *    (`withMetadata()`), así que la salida va sin EXIF. Eso elimina el GPS de
- *    las fotos de móvil, que es justo lo que no queremos publicar en un
- *    despliegue abierto al jurado. No añadas `withMetadata()` sin pensarlo.
+ * 🔒 As a bonus: sharp does NOT copy metadata unless asked (`withMetadata()`),
+ *    so the output carries no EXIF. That strips the GPS position from phone
+ *    photos, which is exactly what a public deployment must not publish. Do not
+ *    add `withMetadata()` without thinking about it.
  */
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  THE SIZE SPEC, PER ENDPOINT, FROM THE DOCUMENTATION — 16 Aug 2026
+ *  THE SIZE SPEC, PER ENDPOINT, FROM THE DOCUMENTATION — read 31 Oct 2026
  * ══════════════════════════════════════════════════════════════════════════
  *
  *  Perfect Corp's Playground resizes source images on the caller's behalf and
  *  says so; the docs are explicit that an integration must do it itself.
  *  ("Step 1: Resize your source image.") So it is worth writing down exactly
- *  what the five endpoints this app uses accept, rather than carrying one
- *  number nobody can trace:
+ *  what the endpoints this app uses accept, rather than carrying one number
+ *  nobody can trace:
  *
- *  | endpoint                    | short side | long side                    |
- *  |-----------------------------|------------|------------------------------|
- *  | Facial Color Tones Analyzer | ≥ 320      | ≤ 4096, downsized above 1080 |
- *  | Fitzpatrick Skin Type       | ≥ 320      | ≤ 4096                       |
- *  | Skin Analysis · SD concerns | ≥ 480      | resized above 2560           |
- *  | Skin Analysis · HD concerns | ≥ 1080     | resized above 2560           |
- *  | Photo Lighting              | —          | ≤ 4096                       |
+ *  | endpoint                    | short side | long side                       |
+ *  |-----------------------------|------------|---------------------------------|
+ *  | Facial Color Tones Analyzer | ≥ 320      | ≤ 4096, downsized above 1080    |
+ *  | Fitzpatrick Skin Type       | ≥ 320      | ≤ 4096                          |
+ *  | Skin Analysis · SD concerns | ≥ 480      | ≤ 2560 (resized above it)       |
+ *  | Skin Analysis · HD concerns | ≥ 1080     | ≤ 2560 (resized above it)       |
+ *  | Photo Lighting              | —          | ≤ 4096                          |
+ *  | Makeup Virtual Try-On       | face ≥ 100 | < 1920, and height < 1080       |
  *
- *  All five: under 10 MB. Facial Color Tones and Fitzpatrick take **jpg only**,
- *  which is one more reason everything leaves here as JPEG.
+ *  All of them: under 10 MB. Fitzpatrick takes **jpg only**, which is one more
+ *  reason everything leaves here as JPEG.
+ *
+ *  ⚠️ MAKEUP IS THE ONE ENDPOINT THE DEFAULT WINDOW DOES NOT FIT. A 1200×1600
+ *     portrait breaks its height cap, so makeup callers pass
+ *     `MAKEUP_LONG_EDGE` and get an image that fits in any orientation.
  *
  *  ⚠️ THE WINDOW BELOW SITS INSIDE ALL OF THEM ON PURPOSE. 520 clears the
  *     strictest floor we can hit (480, SD skincare) with margin; 1600 is far
@@ -130,9 +134,15 @@ export async function uploadImage(
 const MIN_SHORT_EDGE = 520;
 /** Upper bound so uploads stay quick on a phone connection. */
 const MAX_LONG_EDGE = 1600;
+/**
+ * Long edge for `makeup-vto`: under its 1080 px height cap with margin, so a
+ * portrait and a landscape photo both fit. The short side (~800 px on a 3:4
+ * photo) still clears every floor, including skin analysis's 480.
+ */
+export const MAKEUP_LONG_EDGE = 1072;
 /** Hard ceiling shared by every endpoint. Beyond it the task is rejected. */
 const ENGINE_MAX_LONG_EDGE = 4096;
-/** Documented limit for all five. We land two orders of magnitude below it. */
+/** Documented limit for every endpoint. We land two orders of magnitude below it. */
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function toEngineJpeg(input: Buffer, longEdge = MAX_LONG_EDGE): Promise<Buffer> {

@@ -8,7 +8,7 @@
         text-anchor: start;
       }
 
-      /* Pulso de color para "Powered by" (4 segundos) */
+      /* Colour pulse for "Powered by" (4 seconds) */
       .pulse-color {
         animation: pulseColor 4s ease-in-out infinite;
       }
@@ -17,21 +17,21 @@
         50% { fill: #6673A3; }
       }
 
-      /* Salto abrupto con menos colores y más impactantes (4 pasos, 5 segundos cada uno) */
+      /* Abrupt jumps between fewer, bolder colours (4 steps, 5 seconds each) */
       .api-strobe {
         animation: strobeColors 20s steps(4) infinite;
       }
       @keyframes strobeColors {
-        0%   { fill: #00B0FF; } /* Azul celeste original */
-        25%  { fill: #FF0033; } /* Rojo vibrante */
-        50%  { fill: #FFCC00; } /* Amarillo neón */
-        75%  { fill: #D400FF; } /* Morado eléctrico */
-        100% { fill: #00B0FF; } /* Regresa al azul original */
+        0%   { fill: #00B0FF; } /* Original sky blue */
+        25%  { fill: #FF0033; } /* Vibrant red */
+        50%  { fill: #FFCC00; } /* Neon yellow */
+        75%  { fill: #D400FF; } /* Electric purple */
+        100% { fill: #00B0FF; } /* Back to the original blue */
       }
     </style>
   </defs>
 
-  <!-- Texto "Powered by" con pulso de color -->
+  <!-- "Powered by" text with a colour pulse -->
   <text 
     x="108" 
     y="195" 
@@ -43,7 +43,7 @@
     Powered by
   </text>
 
-  <!-- Texto "YouCam API" (Tamaño fijo de 150px, sin movimiento ni recortes) -->
+  <!-- "YouCam API" text (fixed 150px size, no motion, no clipping) -->
   <text 
     x="108" 
     y="360" 

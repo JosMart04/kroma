@@ -1,8 +1,8 @@
 /**
  * YouCam fixtures. Active while YOUCAM_MOCK !== 'false'. Spends no units.
  *
- * The shapes here mirror real responses captured from the live API, not the
- * documentation — the documentation omits `face_quality` entirely.
+ * The shapes here mirror real responses captured from the live API, including
+ * `face_quality`, which the colour analyser returns next to the colours.
  */
 import type { FitzpatrickResult, SkinToneFull, SkinAnalysisResult } from './client';
 
@@ -22,7 +22,8 @@ export async function skinTone(): Promise<SkinToneFull> {
       eye_color_name: 'Green',
       eyebrow_color: '#5b2b31',
       lip_color: '#c4707a',
-      hair_color: '#7a4a2b',
+      // One of the seven preset values the engine's schema allows for hair.
+      hair_color: '#722626',
       hair_color_name: 'Auburn',
     },
     faceQuality: {
@@ -49,6 +50,26 @@ export async function skinAnalysis(concerns: string[]): Promise<SkinAnalysisResu
     out[c] = { raw_score: raw, ui_score: Math.min(100, Math.round(raw * 1.1)) };
   }
   return out;
+}
+
+/** The makeup render in mock mode is the same placeholder as any other render. */
+export async function makeupVto(): Promise<Buffer> {
+  return tryOnImage();
+}
+
+/** A small price list, enough for any screen that shows costs to render. */
+export async function featureCost(): Promise<Array<Record<string, unknown>>> {
+  await delay(100);
+  return [
+    { description: 'AI Facial Color Tones Analyzer V1.0', amount: 20, unit: 'result_image', proc_unit: 1 },
+    { description: 'AI Makeup Virtual Try-On V1.0', amount: 1, unit: 'result_image', proc_unit: 1 },
+  ];
+}
+
+/** A balance far from zero, so mock mode never shows the out-of-credits path. */
+export async function credits(): Promise<number> {
+  await delay(100);
+  return 1000;
 }
 
 /**

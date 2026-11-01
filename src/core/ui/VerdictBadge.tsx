@@ -1,11 +1,11 @@
 /**
- * Insignia de veredicto. ⛔ PROPIETARIO: P1. Consumen P3 y P4.
+ * Verdict badge. ⛔ OWNER: core. Consumed by the wardrobe and shopping slices.
  *
- * ⚠️⚠️ REGLA DE ACCESIBILIDAD NO NEGOCIABLE ⚠️⚠️
- * El significado viaja en ICONO + TEXTO + FORMA. El color es solo decoración.
- * Estamos construyendo para usuarios que no perciben bien el color: si el
- * estado depende de verde/ámbar/rojo, nuestro propio usuario no lo recibe.
- * Sería un fallo de producto y un juez con criterio lo va a notar.
+ * ⚠️⚠️ NON-NEGOTIABLE ACCESSIBILITY RULE ⚠️⚠️
+ * Meaning travels in ICON + TEXT + SHAPE. Colour is decoration only.
+ * We are building for people who do not perceive colour well: if a state
+ * depends on green/amber/red, our own user does not receive it. That would be
+ * a product failure, and an attentive judge will notice it.
  */
 import { Check, AlertTriangle, X } from 'lucide-react';
 import type { Verdict } from '@/core/contracts/types';

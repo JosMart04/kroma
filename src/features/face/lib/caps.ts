@@ -1,47 +1,45 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  MUESTRAS DEL TEST DE ORDENAMIENTO (F1) — estilo Farnsworth D-15
+ *  ARRANGEMENT TEST SAMPLES (F1) — Farnsworth D-15 style
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P2.
+ *  ⛔ OWNER: face slice.
  *
- *  16 muestras repartidas por el círculo de tono a CLARIDAD Y CROMA
- *  CONSTANTES. Esa constancia no es una preferencia estética: es la única
- *  razón por la que el test mide algo.
+ *  16 samples spread around the hue circle at CONSTANT LIGHTNESS AND CHROMA.
+ *  That constancy is not an aesthetic preference: it is the only reason the
+ *  test measures anything.
  *
- *  🔑 SI LA CLARIDAD VARÍA, EL TEST NO MIDE NADA.
- *     La luminosidad es el canal que sobrevive al daltonismo — es justo lo
- *     que dice `srgb.ts` sobre `contrastRatio`. Si las muestras difieren en
- *     claridad, el usuario las ordena por claridad, le sale perfecto, y
- *     habremos medido su visión acromática en vez de su eje de confusión.
- *     Por el mismo motivo el croma es único para todas: si cada muestra
- *     llevara el suyo, la saturación sería otra pista de rescate.
+ *  🔑 IF LIGHTNESS VARIES, THE TEST MEASURES NOTHING.
+ *     Lightness is the channel that survives colour blindness — exactly what
+ *     `srgb.ts` says about `contrastRatio`. If the samples differ in lightness,
+ *     the user sorts them by lightness, gets a perfect score, and we have
+ *     measured their achromatic vision instead of their confusion axis. For the
+ *     same reason chroma is shared by all of them: if each sample had its own,
+ *     saturation would be another rescue cue.
  *
- *  🚫 No se usan las fichas del test original: son un producto comercial con
- *     especificación Munsell propia. El PROCEDIMIENTO (ordenar por similitud
- *     partiendo de una referencia) no es obra de nadie; las muestras las
- *     generamos nosotros en CIELAB. Mismo motivo por el que están prohibidas
- *     las láminas de Ishihara.
+ *  🚫 The original test's caps are not used: they are a commercial product with
+ *     their own Munsell specification. The PROCEDURE (order by similarity
+ *     starting from a reference) belongs to nobody; the samples are generated
+ *     here in CIELAB. Same reason Ishihara plates are off-limits.
  *
- *  Se usa el modo `lch` de culori, que es CIELAB D50 — el MISMO espacio que
- *  `converter('lab')` de `@/core/color/deltae`. Mezclar D50 y D65 metería un
- *  sesgo silencioso en todas las distancias.
+ *  culori's `lch` mode is CIELAB D50 — the SAME space as `converter('lab')` in
+ *  `@/core/color/deltae`. Mixing D50 and D65 would bias every distance silently.
  */
 import { converter, formatHex, inGamut, type Lch } from 'culori';
 
-/** 1 referencia fija + 15 móviles, como el D-15. */
+/** 1 fixed reference + 15 movable samples, like the D-15. */
 export const CAP_COUNT = 16;
 
 /**
- * Claridad de todas las muestras. Media, para dejar sitio al croma por arriba
- * y por abajo sin salirse del gamut en ningún tono.
+ * Lightness of every sample. Mid-range, to leave room for chroma above and
+ * below without leaving the gamut at any hue.
  */
 export const CAP_LIGHTNESS = 55;
 
-/** Croma de partida. Se baja hasta que las 16 quepan en sRGB (ver `solveChroma`). */
+/** Starting chroma. Lowered until all 16 fit in sRGB (see `solveChroma`). */
 const START_CHROMA = 38;
 
-/** Por debajo de esto las muestras son casi grises y el test deja de discriminar. */
+/** Below this the samples are nearly grey and the test stops discriminating. */
 const MIN_CHROMA = 12;
 
 const toRgb = converter('rgb');
@@ -49,10 +47,10 @@ const toLch = converter('lch');
 const rgbInGamut = inGamut('rgb');
 
 export interface Cap {
-  /** Índice estable 0–15. Es también la etiqueta que ve el usuario (+1). */
+  /** Stable index 0–15. It is also the label the user sees (+1). */
   index: number;
   hex: string;
-  /** Tono en grados, para depuración y para el panel de diagnóstico. */
+  /** Hue in degrees, for debugging and the diagnostic panel. */
   hue: number;
 }
 
@@ -66,29 +64,28 @@ function ringAtChroma(chroma: number): Lch[] {
 }
 
 /**
- * El croma más alto (en pasos de 1) con el que las 16 muestras caben en sRGB.
+ * The highest chroma (in steps of 1) at which all 16 samples fit in sRGB.
  *
- * Se busca en vez de fijarlo porque el gamut de sRGB no es un cilindro: a
- * L*=55 el amarillo-verde admite mucho más croma que el azul. Hay que ir al
- * mínimo común, o unas muestras saldrían recortadas y su tono se desplazaría
- * — precisamente el error que arruinaría la medida.
+ * Searched rather than fixed because the sRGB gamut is not a cylinder: at
+ * L*=55 yellow-green admits far more chroma than blue. It has to be the common
+ * minimum, or some samples would be clipped and their hue would shift —
+ * precisely the error that would ruin the measurement.
  */
 function solveChroma(): number {
   for (let c = START_CHROMA; c >= MIN_CHROMA; c -= 1) {
     if (ringAtChroma(c).every((color) => rgbInGamut(color))) return c;
   }
   throw new Error(
-    `[face/caps] No hay croma en [${MIN_CHROMA}, ${START_CHROMA}] que meta las ` +
-      `${CAP_COUNT} muestras en sRGB a L*=${CAP_LIGHTNESS}. Revisa CAP_LIGHTNESS.`,
+    `[face/caps] No chroma in [${MIN_CHROMA}, ${START_CHROMA}] fits all ` +
+      `${CAP_COUNT} samples in sRGB at L*=${CAP_LIGHTNESS}. Check CAP_LIGHTNESS.`,
   );
 }
 
 export const CAP_CHROMA = solveChroma();
 
 /**
- * Las muestras del test. Deterministas: mismo código, mismos colores, siempre.
- * Un test que cambiara de muestras entre ejecuciones no sería reproducible y
- * no podríamos grabar el vídeo dos veces igual.
+ * The test samples. Deterministic: same code, same colours, always. A test
+ * whose samples changed between runs would not be reproducible.
  */
 export const CAPS: readonly Cap[] = ringAtChroma(CAP_CHROMA).map((color, index) => ({
   index,
@@ -96,30 +93,30 @@ export const CAPS: readonly Cap[] = ringAtChroma(CAP_CHROMA).map((color, index) 
   hue: color.h ?? 0,
 }));
 
-/** La muestra de referencia, fija, desde la que arranca la cadena. */
+/** The fixed reference sample the chain starts from. */
 export const REFERENCE_CAP = CAPS[0];
 
-/** Las 15 que el usuario ordena. */
+/** The 15 the user arranges. */
 export const MOVABLE_CAPS: readonly Cap[] = CAPS.slice(1);
 
 /**
- * Comprueba las invariantes que hacen válido el test, YA CUANTIZADAS a 8 bits.
+ * Checks the invariants that make the test valid, ALREADY QUANTISED to 8 bits.
  *
- * Se verifica sobre el hex final, no sobre el Lch teórico: entre el color
- * ideal y el que acaba en pantalla hay un redondeo a 8 bits por canal, y es el
- * de pantalla el que ve el usuario. Si el redondeo desalineara la claridad,
- * este test lo detecta.
+ * Verified on the final hex, not the theoretical Lch: between the ideal colour
+ * and what ends up on screen there is an 8-bit-per-channel rounding, and the
+ * on-screen one is what the user sees. If rounding misaligned the lightness,
+ * this check catches it.
  *
- * Falla ruidosamente, igual que `assertReady()` en el núcleo: es preferible
- * que la app no arranque a que mida mal en silencio, porque nuestro usuario no
- * puede detectar que las muestras estaban mal.
+ * It fails loudly, like `assertReady()` in the core: better for the app not to
+ * start than to measure wrongly in silence, because our user cannot detect
+ * that the samples were wrong.
  */
 export function assertCapsValid(): void {
   const back = CAPS.map((cap) => toLch(cap.hex));
 
   const missing = back.findIndex((c) => !c);
   if (missing >= 0) {
-    throw new Error(`[face/caps] La muestra ${missing} no se pudo convertir de vuelta a Lch.`);
+    throw new Error(`[face/caps] Sample ${missing} could not be converted back to Lch.`);
   }
 
   const ls = back.map((c) => c!.l);
@@ -128,19 +125,19 @@ export function assertCapsValid(): void {
 
   if (spread(ls) > 1) {
     throw new Error(
-      `[face/caps] La claridad no es constante (rango ${spread(ls).toFixed(2)} L*). ` +
-        `El usuario ordenaría por claridad y el test no mediría el eje de confusión.`,
+      `[face/caps] Lightness is not constant (range ${spread(ls).toFixed(2)} L*). ` +
+        `The user would sort by lightness and the test would not measure the confusion axis.`,
     );
   }
   if (spread(cs) > 1) {
     throw new Error(
-      `[face/caps] El croma no es constante (rango ${spread(cs).toFixed(2)}). ` +
-        `La saturación se convertiría en una pista alternativa.`,
+      `[face/caps] Chroma is not constant (range ${spread(cs).toFixed(2)}). ` +
+        `Saturation would become an alternative cue.`,
     );
   }
   const outOfGamut = CAPS.filter((cap) => !toRgb(cap.hex));
   if (outOfGamut.length) {
-    throw new Error(`[face/caps] ${outOfGamut.length} muestras fuera de sRGB.`);
+    throw new Error(`[face/caps] ${outOfGamut.length} samples are outside sRGB.`);
   }
 }
 

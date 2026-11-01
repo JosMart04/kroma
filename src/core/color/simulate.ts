@@ -1,6 +1,6 @@
 /**
- * Motor de simulación cromática (F3).
- * ⛔ PROPIETARIO: P1. Consumen: P2 (vista doble), P3 (familias, semáforo), P4 (analizador).
+ * Colour simulation engine (F3).
+ * ⛔ OWNER: core. Consumed by the dual view, families, the traffic light and the analyser.
  */
 import type { CVDProfile, CVDType } from '@/core/contracts/types';
 import { linearize, delinearize, hexToRgb, rgbToHex, type RGB } from './srgb';
@@ -26,10 +26,10 @@ function applyMatrix(m: Matrix3, c: RGB): RGB {
 }
 
 /**
- * Simula un color en el espacio perceptual del usuario.
+ * Simulates a colour in the user's perceptual space.
  *
- * Pipeline obligatorio (no saltarse pasos):
- *   sRGB → linealizar → matriz de deficiencia → delinealizar → sRGB
+ * Mandatory pipeline (do not skip steps):
+ *   sRGB → linearise → deficiency matrix → delinearise → sRGB
  */
 export function simulateRgb(c: RGB, profile: CVDProfile): RGB {
   if (profile.type === 'normal' || profile.severity <= 0) return c;
@@ -43,11 +43,11 @@ export function simulateHex(hex: string, profile: CVDProfile): string {
 }
 
 /**
- * Simula un ImageData completo, in-place. Para la vista doble (F5).
+ * Simulates a whole ImageData, in place. For the dual view (F5).
  *
- * ⚠️ Cuidado con el rendimiento: en una imagen de 2000x2000 son 4M de
- * operaciones. Redimensiona a un máximo de ~1200px de lado antes de llamar,
- * o el hilo principal se bloquea y el demo se ve a tirones.
+ * ⚠️ Mind the performance: a 2000x2000 image is 4M operations. Downscale to
+ * at most ~1200 px per side before calling, or the main thread blocks and the
+ * screen stutters.
  */
 export function simulateImageData(img: ImageData, profile: CVDProfile): ImageData {
   if (profile.type === 'normal' || profile.severity <= 0) return img;
@@ -58,7 +58,7 @@ export function simulateImageData(img: ImageData, profile: CVDProfile): ImageDat
     const lin = linearize([d[i], d[i + 1], d[i + 2]]);
     const out = delinearize(applyMatrix(m, lin));
     d[i] = out[0]; d[i + 1] = out[1]; d[i + 2] = out[2];
-    // el canal alfa (d[i+3]) se deja intacto
+    // the alpha channel (d[i+3]) is left untouched
   }
   return img;
 }

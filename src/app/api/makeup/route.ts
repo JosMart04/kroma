@@ -9,16 +9,13 @@
  *  redness, judge a corrector colour, tell afterwards whether it helped — all
  *  become measurements.
  *
- *  ⚠️ THIS FEATURE WAS DECLARED IMPOSSIBLE AND CUT. `/task/makeup` returns 404
- *     over REST and "makeup" is in none of the 20 SKUs of
- *     `/credit/feature-cost`, so the README and the limitations both said the
- *     API could not do it. That was wrong. The tool is on the MCP `beauty`
- *     server, it takes a `src_file_id` from the same File API, and its
- *     `concealer` category accepts an arbitrary hex colour.
+ *  The render is `makeup-vto` over REST (1 unit): its `concealer` category
+ *  accepts an arbitrary hex colour, which is exactly what F15 computes.
  *
- *  ⚠️ MCP-ONLY, SO THERE IS NO FALLBACK TO WRITE. Everywhere else in this app a
- *     failed MCP call drops to REST; here REST has nothing to drop to. When it
- *     fails the route says so rather than pretending.
+ *  ⚠️ ONE TRANSPORT FOR THE WHOLE COMPARISON. The redness before and after is
+ *     read with the REST skin analyser, and REST and MCP have returned visibly
+ *     different numbers for the same image. Mixing them would make "it got
+ *     better" partly a difference between two code paths.
  *
  *  ── TWO MODES, AND ONLY ONE OF THEM ANSWERS THE QUESTION ────────────────
  *
@@ -32,11 +29,10 @@
  *  is cheap.
  */
 import { NextResponse } from 'next/server';
-import { uploadImage, toEngineJpeg, tightenFraming } from '@/core/youcam/upload';
+import { uploadImage, toEngineJpeg, tightenFraming, MAKEUP_LONG_EDGE } from '@/core/youcam/upload';
 import { youcam } from '@/core/youcam/client';
-import { downloadResult } from '@/core/youcam/poll';
 import { YouCamError } from '@/core/youcam/errors';
-import { callTool, TOOLS } from '@/core/mcp/client';
+import { withBudget, ROUTE_BUDGET_MS } from '@/core/youcam/budget';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -55,7 +51,7 @@ const CORRECTOR = { intensity: 25, underEye: 18, coverage: 30 };
 /** Hex, and only hex. This value comes from a measurement and goes to an API. */
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-/** Log an engine failure so an unmapped code can never go unnoticed again. */
+/** Log an engine failure so an unmapped code can never go unnoticed. */
 function note(step: string, e: unknown) {
   if (e instanceof YouCamError) {
     console.error(
@@ -84,8 +80,7 @@ async function readRedness(fileId: string): Promise<number | null> {
   const skin = await youcam.skinAnalysis(fileId, ['redness']);
   /**
    * ⚠️ NULL, NEVER 0. The scale is inverted — higher is calmer — so defaulting
-   *    a missing reading to zero would report the worst possible skin. That
-   *    exact bug shipped once already.
+   *    a missing reading to zero would report the worst possible skin.
    */
   return skin.redness?.raw_score ?? null;
 }
@@ -122,34 +117,18 @@ async function measureRedness(jpeg: Buffer, fileId: string): Promise<number | nu
   }
 }
 
-/** Pull the result URL out of an MCP tool payload, defensively. */
-function resultUrl(raw: unknown): string | null {
-  const content = (raw as { content?: Array<{ type?: string; text?: string }> })?.content;
-  if (!Array.isArray(content)) return null;
-  const text = content
-    .filter((c) => c?.type === 'text' && typeof c.text === 'string')
-    .map((c) => c.text)
-    .join('');
-  if (!text) return null;
-  try {
-    const payload = JSON.parse(text) as { data?: { results?: { url?: string } } };
-    return payload?.data?.results?.url ?? null;
-  } catch {
-    return null;
-  }
+export async function POST(req: Request) {
+  return withBudget(ROUTE_BUDGET_MS, () => handle(req));
 }
 
-export async function POST(req: Request) {
+async function handle(req: Request) {
   // Hoisted so the failure log can say which half of the feature broke.
   let mode = 'preview';
   try {
     /**
      * ⚠️ PARSED SEPARATELY, BECAUSE A MALFORMED REQUEST IS NOT THE ENGINE'S
-     *    FAULT. Anything thrown below lands in a catch that explains this
-     *    feature runs only over MCP — true, and completely irrelevant to a body
-     *    that never contained a form. Probing the route with an empty POST
-     *    produced exactly that message, which would have sent the next person
-     *    debugging an MCP transport that was working perfectly.
+     *    FAULT. A body that never contained a form must be told so, not sent
+     *    into the catch below, which talks about the engine.
      */
     let form: FormData;
     try {
@@ -165,9 +144,7 @@ export async function POST(req: Request) {
     if (!(photo instanceof File)) {
       return NextResponse.json({ error: 'No photo was uploaded.' }, { status: 400 });
     }
-
-    const jpeg = await toEngineJpeg(Buffer.from(await photo.arrayBuffer()));
-    const srcFileId = await uploadImage(jpeg, 'face.jpg');
+    const original = Buffer.from(await photo.arrayBuffer());
 
     /**
      * ── The real check: just read the redness of this face ────────────────
@@ -177,7 +154,9 @@ export async function POST(req: Request) {
      * reason attached instead of a shrug.
      */
     if (mode === 'measure') {
-      return NextResponse.json({ mode, redness: await measureRedness(jpeg, srcFileId) });
+      const jpeg = await toEngineJpeg(original);
+      const fileId = await uploadImage(jpeg, 'face.jpg');
+      return NextResponse.json({ mode, redness: await measureRedness(jpeg, fileId) });
     }
 
     const corrector = String(form.get('corrector') ?? '');
@@ -189,57 +168,47 @@ export async function POST(req: Request) {
     }
 
     /**
-     * The baseline and the render both need only the upload, so they go
+     * ⚠️ ONE IMAGE, SIZED FOR THE STRICTEST ENDPOINT IN THE COMPARISON.
+     *    `makeup-vto` caps the long side under 1920 px and the height under
+     *    1080 px. The baseline redness is read from the very same file the
+     *    render starts from, so before and after differ by the makeup and by
+     *    nothing else — not by resolution.
+     */
+    const jpeg = await toEngineJpeg(original, MAKEUP_LONG_EDGE);
+    const srcFileId = await uploadImage(jpeg, 'face.jpg');
+
+    /**
+     * The baseline and the render both need only the upload, so they run
      * together — one serial leg saved out of a budget of 60 seconds.
      *
-     * ⚠️ THE BASELINE IS OPTIONAL AND THE RENDER IS NOT, and getting that
-     *    backwards is what broke this screen. A user pressed "Put the corrector
-     *    on and measure", the skin analyser refused the framing of a selfie the
-     *    colour portrait had just accepted, and the whole feature returned 422 —
-     *    including the picture, which had rendered fine and needed no face
-     *    measurement at all. A missing baseline costs the before/after
-     *    comparison. It should never cost the image.
+     * ⚠️ THE BASELINE IS OPTIONAL AND THE RENDER IS NOT. If the skin analyser
+     *    refuses the framing, the user still gets the picture, which needs no
+     *    face measurement at all. A missing baseline costs the before/after
+     *    comparison, never the image.
      */
-    const [before, rendered] = await Promise.all([
+    const [before, image] = await Promise.all([
       optional('redness (before)', () => measureRedness(jpeg, srcFileId)),
-      callTool({
-        server: TOOLS.makeup.server,
-        tool: TOOLS.makeup.tool,
-        args: {
-          request: {
-            src_file_id: srcFileId,
-            effects: [
+      youcam.makeupVto({
+        srcFileId,
+        effects: [
+          {
+            category: 'concealer',
+            palettes: [
               {
-                category: 'concealer',
-                palettes: [
-                  {
-                    color: corrector,
-                    colorIntensity: CORRECTOR.intensity,
-                    colorUnderEyeIntensity: CORRECTOR.underEye,
-                    coverageLevel: CORRECTOR.coverage,
-                  },
-                ],
+                color: corrector,
+                colorIntensity: CORRECTOR.intensity,
+                colorUnderEyeIntensity: CORRECTOR.underEye,
+                coverageLevel: CORRECTOR.coverage,
               },
             ],
           },
-        },
+        ],
       }),
     ]);
 
-    const url = resultUrl(rendered);
-    if (!url) {
-      return NextResponse.json(
-        { error: 'The makeup engine answered, but not with an image we could read.' },
-        { status: 502 },
-      );
-    }
-
-    // ⚠️ Downloaded immediately: the result URL carries X-Amz-Expires=7200 and
-    //    is dead in two hours. Never store the link.
-    const image = await downloadResult(url);
     // Converted once and reused: the second reading and the picture the user
-    // sees are then provably the same pixels, and it saves an encode.
-    const renderedJpeg = await toEngineJpeg(image);
+    // sees are provably the same pixels, and it saves an encode.
+    const renderedJpeg = await toEngineJpeg(image, MAKEUP_LONG_EDGE);
     const after = await optional('redness (after)', async () =>
       measureRedness(renderedJpeg, await uploadImage(renderedJpeg, 'after.jpg')),
     );
@@ -259,20 +228,14 @@ export async function POST(req: Request) {
         {
           error: e.userFacing.message,
           action: e.userFacing.action,
-          // For whoever debugs this, never rendered. Its absence is what made
-          // the reported 422 unexplainable from the outside.
+          // For whoever debugs this, never rendered.
           detail: `${e.code}${e.detail ? `: ${e.detail}` : ''}`,
         },
         { status: 422 },
       );
     }
-    console.error('[api/makeup]', e);
     return NextResponse.json(
-      {
-        error: 'The makeup preview did not come back.',
-        action:
-          'This part of the app runs only over the Model Context Protocol, which has no REST equivalent to fall back to.',
-      },
+      { error: 'The makeup preview did not come back. Please try again.' },
       { status: 500 },
     );
   }

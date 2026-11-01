@@ -18,17 +18,18 @@
  *  So the limits are asserted here, on synthetic images of the shapes that
  *  break them, before a unit is ever spent.
  *
- *  THE DOCUMENTED SPEC — read 16 Aug 2026, for the five endpoints this app uses
+ *  THE DOCUMENTED SPEC — read 31 Oct 2026, for the endpoints this app uses
  *
  *  | endpoint                    | short side | long side                    |
  *  |-----------------------------|------------|------------------------------|
  *  | Facial Color Tones Analyzer | ≥ 320      | ≤ 4096, downsized above 1080 |
  *  | Fitzpatrick Skin Type       | ≥ 320      | ≤ 4096                       |
- *  | Skin Analysis · SD concerns | ≥ 480      | resized above 2560           |
- *  | Skin Analysis · HD concerns | ≥ 1080     | resized above 2560           |
+ *  | Skin Analysis · SD concerns | ≥ 480      | ≤ 2560 (resized above it)    |
+ *  | Skin Analysis · HD concerns | ≥ 1080     | ≤ 2560 (resized above it)    |
  *  | Photo Lighting              | —          | ≤ 4096                       |
+ *  | Makeup Virtual Try-On       | face ≥ 100 | < 1920, height < 1080        |
  *
- *  All five: under 10 MB. Two of them accept jpg only.
+ *  All of them: under 10 MB. Fitzpatrick accepts jpg only.
  *
  *  ⚠️ HD SKINCARE IS THE ONE LINE WE DO NOT CLEAR, and that is deliberate: we
  *     request SD concerns only, so its 1080 floor never applies. The harness
@@ -125,6 +126,38 @@ for (const c of CASES) {
     out: `${meta.width}×${meta.height}`,
     kb: Math.round(out.byteLength / 1024),
     verdict: problems.length ? `✗ ${problems.join('; ')}` : '✓',
+  });
+}
+
+/**
+ * ── Makeup has its own, tighter window ───────────────────────────────────
+ *
+ * `makeup-vto` wants the long side under 1920 px and the height under 1080 px.
+ * The default 1600 px window breaks the height cap on any portrait photo, so
+ * the makeup route asks for `MAKEUP_LONG_EDGE`. Both orientations must fit,
+ * and the short side must still clear the skin analyser's 480 px floor,
+ * because the same file is measured before and after the render.
+ */
+const MAKEUP_LONG_EDGE = 1072;
+for (const [w, h, label] of [
+  [3024, 4032, "makeup · 3:4 portrait"],
+  [4032, 3024, "makeup · landscape"],
+  [1080, 1920, "makeup · 9:16 portrait"],
+]) {
+  const out = await toEngineJpeg(await image(w, h), MAKEUP_LONG_EDGE);
+  const meta = await sharp(out).metadata();
+  const problems = [];
+  if (meta.width >= 1920) problems.push(`width ${meta.width} >= 1920`);
+  if (meta.height >= 1080 && meta.width >= 1080) problems.push(`both sides >= 1080`);
+  if (Math.max(meta.width, meta.height) >= 1080) problems.push(`long side ${Math.max(meta.width, meta.height)} >= 1080`);
+  if (Math.min(meta.width, meta.height) < SPEC.minShort) problems.push(`short side below ${SPEC.minShort}`);
+  if (problems.length) failures++;
+  rows.push({
+    case: label,
+    in: `${w}×${h}`,
+    out: `${meta.width}×${meta.height}`,
+    kb: Math.round(out.byteLength / 1024),
+    verdict: problems.length ? `✗ ${problems.join("; ")}` : "✓",
   });
 }
 

@@ -1,50 +1,47 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  CONTRATOS — LA FRONTERA ENTRE LAS CUATRO REBANADAS
+ *  CONTRACTS — THE BOUNDARY BETWEEN THE FOUR SLICES
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P1 (núcleo). Nadie más edita este fichero.
- *  🔒 CONGELADO: 13 de agosto, 14:00.
+ *  ⛔ OWNER: core. Changing a type here changes every slice at once.
  *
- *  Después de esa hora, cambiar un tipo aquí rompe el trabajo de otras tres
- *  personas simultáneamente. Si necesitas un cambio: se lo pides a P1, P1
- *  decide, P1 lo hace y avisa en el canal del equipo. No lo edites tú aunque
- *  sea "un campo de nada".
+ *  If a slice needs a change, it is proposed, decided by the core owner,
+ *  made in one commit and announced — even for "just one small field".
  *
- *  Todo lo que cruza una frontera de rebanada pasa por aquí.
- *  Lo que es interno a tu rebanada NO tiene que estar en este fichero.
+ *  Everything that crosses a slice boundary goes through here.
+ *  What is internal to a slice does NOT belong in this file.
  */
 
 // ─────────────────────────────────────────────────────────────────────────
-//  BLOQUE A · Perfil perceptual del usuario
+//  BLOCK A · The user's perceptual profile
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Los tres ejes de confusión soportados. Acromatopsia queda fuera de alcance. */
+/** The three supported confusion axes. Achromatopsia is out of scope. */
 export type CVDType = 'protan' | 'deutan' | 'tritan' | 'normal';
 
 /**
- * Perfil del usuario. Producto de F1 (calibración).
- * TODO el sistema calcula contra esto: sin perfil no hay veredicto posible.
+ * The user's profile. Product of F1 (calibration).
+ * The WHOLE system computes against this: no profile, no verdict.
  */
 export interface CVDProfile {
   type: CVDType;
-  /** 0.0 = visión normal · 1.0 = dicromacia completa. La mayoría cae en 0.3–0.7. */
+  /** 0.0 = normal vision · 1.0 = full dichromacy. Most people land in 0.3–0.7. */
   severity: number;
   source: 'calibrated' | 'self_reported';
-  /** Cómo de concluyente fue el test. 0–1. Por debajo de 0.5, sugerir repetir. */
+  /** How conclusive the test was, 0–1. Below 0.5, suggest repeating it. */
   confidence: number;
   calibratedAt: string; // ISO 8601
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Capa de confianza — atraviesa TODAS las mediciones
+//  Confidence layer — it runs through EVERY measurement
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * 'measured'  → la medición es fiable, se puede mostrar
- * 'low_light' → se muestra, pero degradada y con aviso visible
- * 'refuse'    → NO SE MUESTRA. Pantalla de negativa. Esto no es un error:
- *               es una función del producto.
+ * 'measured'  → the measurement is reliable and can be shown
+ * 'low_light' → shown, but degraded and with a visible warning
+ * 'refuse'    → NOT SHOWN. A refusal screen. This is not an error:
+ *               it is a product feature.
  */
 export type ConfidenceLevel = 'measured' | 'low_light' | 'refuse';
 
@@ -65,26 +62,25 @@ export interface MeasurementConfidence {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  BLOQUE A · Retrato cromático — la paleta FIJA del usuario
+//  BLOCK A · Colour portrait — the user's FIXED palette
 // ─────────────────────────────────────────────────────────────────────────
 
 export type FitzpatrickType = 1 | 2 | 3 | 4 | 5 | 6;
 
-/** Valores exactos que devuelve AI_Facial_Color_Tones_Analyzer. No inventar otros. */
+/** The exact values the Facial Color Tones Analyzer returns. Do not invent others. */
 export type EyeColorName = 'Amber' | 'Brown' | 'Green' | 'Blue' | 'Gray' | 'Other';
 export type HairColorName = 'Auburn' | 'Black' | 'Blonde' | 'Brown' | 'Grey/White' | 'Red';
 
 /**
- * Producto de F2. Es la paleta que el usuario lleva puesta SIEMPRE.
- * El semáforo de F11 debe considerarla como un elemento más del conjunto:
- * una camisa no compite solo contra el pantalón, también contra la piel y el pelo.
+ * Product of F2. The palette the user wears ALL THE TIME.
+ * The F11 traffic light must treat it as one more element of the outfit:
+ * a shirt does not only compete with the trousers, but with skin and hair too.
  */
 export interface ColorPortrait {
   /**
    * ⚠️ NULL MEANS THE PHOTOTYPE WAS NOT MEASURED, and it must be shown as such.
-   * It used to be required, so one failing call out of five destroyed an
-   * otherwise perfect portrait. Redness is uninterpretable without it, which is
-   * a reason to SAY it is missing — never a reason to invent one.
+   * Redness is uninterpretable without it, which is a reason to SAY it is
+   * missing — never a reason to invent one.
    */
   fitzpatrick: FitzpatrickType | null;
 
@@ -93,21 +89,29 @@ export interface ColorPortrait {
   eyeName: EyeColorName;
   eyebrowHex: string;
   lipHex: string;
-  hairHex: string;
-  hairName: HairColorName;
+  /**
+   * ⚠️ A CATEGORY SWATCH, NOT A MEASUREMENT. The analyser's documented schema
+   *    allows only seven preset hex values for hair, one per hair category —
+   *    unlike skin, eyes, brows and lips, which are free measured values. The
+   *    screen must say so. Null when the engine returned none: a hair colour we
+   *    made up would enter every hair verdict as if it were real.
+   */
+  hairHex: string | null;
+  /** Null when the engine named no category we recognise. */
+  hairName: HairColorName | null;
 
   /**
    * ⚠️ raw_score, NEVER ui_score. The official documentation admits ui_score is
-   * inflated upwards as a "psychological motivator". This whole product rests
+   * adjusted upwards as a "psychological motivator". This whole product rests
    * on the user being unable to detect us flattering them, so the raw value is
    * not optional.
    *
    * ⚠️ INVERTED SCALE: higher = BETTER condition. 72 is not "72% redness".
    *
-   * ⚠️ `null` means WE DID NOT MEASURE IT, and it must be shown as such. It was
-   *    a plain `number` until the API returned no redness entry and a `?? 0`
-   *    default turned that into 0 — the most alarming value on an inverted
-   *    scale. A type that cannot say "unknown" forces a lie at the first gap.
+   * ⚠️ `null` means WE DID NOT MEASURE IT, and it must be shown as such. A
+   *    `?? 0` default would turn a missing entry into 0 — the most alarming
+   *    value on an inverted scale. A type that cannot say "unknown" forces a
+   *    lie at the first gap.
    */
   rednessRaw: number | null;
 
@@ -116,21 +120,21 @@ export interface ColorPortrait {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  BLOQUE B · Armario
+//  BLOCK B · Wardrobe
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Categorías. Solo algunas tienen VTO en la API — ver `CATEGORIES_WITH_VTO`.
- * Las que no lo tienen ENTRAN IGUAL en el armario y en el veredicto:
- * cinturón contra zapatos y corbata contra camisa son los puntos de choque
- * más citados en la investigación, y ninguno de los dos tiene render.
+ * Categories. Only some have a try-on in the API — see `CATEGORIES_WITH_VTO`.
+ * The ones without one STILL ENTER the wardrobe and every verdict: belt
+ * against shoes and tie against shirt are among the most cited clash points in
+ * the research, and neither has a render.
  */
 export type GarmentCategory =
   | 'top' | 'bottom' | 'outerwear' | 'dress'
   | 'shoes' | 'scarf' | 'hat' | 'bag'
   | 'belt' | 'tie' | 'socks' | 'other';
 
-/** Coordenadas CIELAB. Sobre esto corre TODA la matemática del proyecto. */
+/** CIELAB coordinates. ALL of the project's maths runs on these. */
 export type Lab = readonly [L: number, a: number, b: number];
 
 export interface Garment {
@@ -141,15 +145,15 @@ export interface Garment {
 
   colorHex: string;
   colorLab: Lab;
-  /** Nombre en lenguaje natural: "verde oliva", "azul marino". */
+  /** Natural-language name: "olive green", "navy blue". */
   colorName: string;
 
-  /** Si es estampada, el color dominante es orientativo: hay que avisarlo. */
+  /** When patterned, the dominant colour is indicative only: say so. */
   isPatterned: boolean;
 
   /**
-   * ⚠️ Una prenda medida con 'low_light' contamina TODAS las combinaciones
-   * futuras en las que participe. El semáforo debe degradar su veredicto.
+   * ⚠️ A garment measured as 'low_light' contaminates EVERY future combination
+   * it takes part in. The traffic light must degrade its verdict.
    */
   confidence: MeasurementConfidence;
 
@@ -157,7 +161,7 @@ export interface Garment {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Veredicto — el corazón del producto
+//  Verdict — the heart of the product
 // ─────────────────────────────────────────────────────────────────────────
 
 export type Verdict = 'safe' | 'risky' | 'clash';
@@ -165,35 +169,34 @@ export type Verdict = 'safe' | 'risky' | 'clash';
 export interface PairVerdict {
   verdict: Verdict;
 
-  /** Distancia perceptual en visión normal. */
+  /** Perceptual distance in normal vision. */
   deltaENormal: number;
-  /** Distancia perceptual en el espacio simulado del usuario. Esto es lo que importa. */
+  /** Perceptual distance in the user's simulated space. This is what matters. */
   deltaESimulated: number;
-  /** Ratio de contraste de luminancia, estilo WCAG. */
+  /** WCAG-style luminance contrast ratio. */
   luminanceContrast: number;
 
   /**
-   * 🔑 LA REGLA QUE NOS DIFERENCIA.
-   * true cuando el par colisiona en TONO pero se distingue por CLARIDAD.
-   * La luminosidad es el canal que sobrevive al daltonismo. Marcar estos casos
-   * como colisión genera falsas alarmas constantes y destruye la confianza.
+   * 🔑 THE RULE THAT SETS US APART.
+   * True when the pair collides in HUE but is told apart by LIGHTNESS.
+   * Lightness is the channel that survives colour blindness. Flagging these
+   * cases as a clash produces constant false alarms and destroys trust.
    */
   savedByLuminance: boolean;
 
-  /** El porqué, en lengua del usuario. Nunca números crudos en la interfaz. */
+  /** The why, in the user's language. Never raw numbers in the interface. */
   explanation: string;
 }
 
-/** Producto de F8. Se calcula al vuelo, NO se persiste. */
+/** Product of F8. Computed on the fly, NOT persisted. */
 export interface ColorFamily {
   id: number;
   garmentIds: string[];
   representativeHex: string;
-  /** Separación mínima dentro de la familia, en el espacio del usuario. */
+  /** Smallest separation inside the family, in the user's space. */
   minInternalDeltaE: number;
 }
 
-/** Producto de F9. */
 /**
  * F9 · "You may already own this."
  *
@@ -208,9 +211,8 @@ export interface ColorFamily {
  *      would contradict us in front of them. The honest sentence is that they
  *      will not be able to tell the two apart.
  *
- *    Collapsing them into one message was the shape of the original type, and
- *    it would have made us confidently wrong in the case our user can least
- *    afford.
+ *    Collapsing them into one message would make us confidently wrong in the
+ *    case our user can least afford.
  */
 export type DuplicateKind = 'same_colour' | 'indistinguishable';
 
@@ -235,34 +237,26 @@ export interface DuplicateAlert {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  BLOQUE C · Decisión de compra — la salida que cierra el demo
+//  BLOCK C · Purchase decision — the output that closes the demo
 // ─────────────────────────────────────────────────────────────────────────
 
 export interface GarmentAnalysis {
   garment: Garment;
-  /** "Combina con el 62% de tu armario". Esta cifra es el argumento de retail. */
+  /** "Goes with 62% of your wardrobe". This figure is the retail argument. */
   compatibilityPercent: number;
   worksWith: Garment[];
   clashesWith: Garment[];
-  /** Binario ya descargado a NUESTRO storage. Nunca la URL de YouCam: caduca en 2h. */
+  /** Binary already downloaded to OUR storage. Never the YouCam URL: it expires in 2 h. */
   vtoImageUrl: string | null;
-  /** Veredicto contra la paleta fija de F2 (piel, ojos, pelo). */
+  /** Verdict against F2's fixed palette (skin, eyes, hair). */
   verdictVsPortrait: PairVerdict;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  BLOQUE D · Maquillaje
+//  BLOCK D · Makeup
 // ─────────────────────────────────────────────────────────────────────────
 
-export interface CorrectorRecommendation {
-  /** "verde menta", "verde oliva", "melocotón" — depende del fototipo. */
-  color: string;
-  colorHex: string;
-  reason: string;
-  rednessLevel: 'none' | 'mild' | 'marked';
-}
-
-/** Producto de F16. El número que ningún otro proyecto de la galería puede producir. */
+/** Product of F16: redness before and after a corrector, both measured. */
 export interface CorrectionResult {
   rednessBefore: number;
   rednessAfter: number;
@@ -272,46 +266,35 @@ export interface CorrectionResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Constantes compartidas
+//  Shared constants
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Categorías con VTO real en la API. El resto entra en la lógica, sin render.
+ * Wardrobe categories with a real try-on in the API. The rest enter the logic
+ * without a render.
  *
- * ⚠️ CORRECCIÓN DEL 13-AGO-2026, POSTERIOR AL CONGELADO. Se anunció en el canal.
- *
- * `'outerwear'` estaba aquí y **se ha quitado**: no es un `garment_category`
- * válido de `cloth-v4`. Enumerados los seis valores documentados contra la API
- * con una clave real, cinco responden 200 y **outerwear es el único que
- * devuelve 400** «garment_category is not one of the accepted values».
- *
- * Se rompió el congelado a propósito y con coste cero: en el momento del cambio
- * NINGÚN fichero importaba esta constante. Dejarla habría hecho que P4
- * construyera el try-on de la chaqueta contra una categoría que la API rechaza,
- * y se habría descubierto el día 15 con el vídeo a medio grabar.
- *
- * ⚠️ NO CONFUNDIR CON `GarmentCategory`: ahí `'outerwear'` **sigue siendo
- * válido**. Una chaqueta es una prenda de abrigo en nuestro armario; lo que no
- * existe es como parámetro de la API. Para el try-on de una chaqueta se manda
- * `upper_body` o `auto`.
+ * ⚠️ OUR `outerwear` IS THE ENGINE'S `outer`. `cloth-v4` rejects `outerwear`
+ *    with 400 "garment_category is not one of the accepted values" and accepts
+ *    `outer`; the mapping lives in `core/youcam/tryOnCategory.ts`. In our own
+ *    vocabulary a jacket stays `outerwear`, because that is what the user owns.
  */
 export const CATEGORIES_WITH_VTO: readonly GarmentCategory[] = [
-  'top', 'bottom', 'dress', 'shoes', 'scarf', 'hat', 'bag',
+  'top', 'bottom', 'outerwear', 'dress', 'shoes', 'scarf', 'hat', 'bag',
 ] as const;
 
 /**
- * Estas cuatro exigen el parámetro `gender` explícito, que NO aparece en los
- * ejemplos genéricos de la documentación. Omitirlo da un error poco claro.
+ * These four require an explicit `gender` parameter, which is absent from the
+ * generic examples in the documentation. Omitting it produces an unclear error.
  */
 export const CATEGORIES_REQUIRING_GENDER: readonly GarmentCategory[] = [
   'shoes', 'scarf', 'hat', 'bag',
 ] as const;
 
-/** Umbral práctico de colisión de tono, en ΔE sobre el espacio simulado. */
+/** Practical hue-collision threshold, in ΔE over the simulated space. */
 export const COLLISION_THRESHOLD_DELTA_E = 11;
 
-/** Por debajo de esto, dos prendas son "casi la misma" → alerta de duplicado (F9). */
+/** Below this, two garments are "almost the same" → duplicate alert (F9). */
 export const DUPLICATE_THRESHOLD_DELTA_E = 5;
 
-/** Contraste de luminancia por encima del cual un par se salva pese a colisionar en tono. */
+/** Luminance contrast above which a pair is saved despite colliding in hue. */
 export const LUMINANCE_RESCUE_THRESHOLD = 1.8;

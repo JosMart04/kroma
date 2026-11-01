@@ -109,15 +109,32 @@ export function PortraitCapture() {
     }
   }
 
-  const swatches = portrait
-    ? [
-        { label: 'Skin', hex: portrait.skinHex, name: null },
-        { label: 'Eyes', hex: portrait.eyeHex, name: portrait.eyeName },
-        { label: 'Brows', hex: portrait.eyebrowHex, name: null },
-        { label: 'Lips', hex: portrait.lipHex, name: null },
-        { label: 'Hair', hex: portrait.hairHex, name: portrait.hairName },
-      ]
-    : [];
+  /**
+   * ⚠️ HAIR IS A CATEGORY, AND THE LIST SAYS SO. The engine returns one of seven
+   *    preset swatches for hair, where skin, eyes, brows and lips are measured
+   *    values. Showing them side by side without that note would present a
+   *    category as a reading — exactly the kind of difference our user cannot
+   *    see for themselves.
+   */
+  const swatches: Array<{ label: string; hex: string; name: string | null; note?: string }> =
+    portrait
+      ? [
+          { label: 'Skin', hex: portrait.skinHex, name: null },
+          { label: 'Eyes', hex: portrait.eyeHex, name: portrait.eyeName },
+          { label: 'Brows', hex: portrait.eyebrowHex, name: null },
+          { label: 'Lips', hex: portrait.lipHex, name: null },
+          ...(portrait.hairHex
+            ? [
+                {
+                  label: 'Hair',
+                  hex: portrait.hairHex,
+                  name: portrait.hairName,
+                  note: 'A colour category, not a measurement: the engine picks one of seven preset hair colours.',
+                },
+              ]
+            : []),
+        ]
+      : [];
 
   return (
     <div className="mt-6">
@@ -222,6 +239,7 @@ export function PortraitCapture() {
                       {s.name ? `${s.name} · ` : ''}
                       <code>{s.hex}</code>
                     </span>
+                    {s.note && <span className="mt-1 block text-xs text-slate-500">{s.note}</span>}
                   </span>
                 </div>
                 {/* F5 · The same colour as everyone else sees it, and as you do. */}
@@ -229,6 +247,13 @@ export function PortraitCapture() {
               </li>
             ))}
           </ul>
+
+          {!portrait.hairHex && (
+            <p className="mt-3 text-sm text-slate-600">
+              Hair: the engine did not return a hair colour for this photo, so none is
+              shown and none is used in your outfit verdicts.
+            </p>
+          )}
 
           <dl className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-lg border-2 border-slate-200 p-3">

@@ -16,7 +16,7 @@
  *  Exactly one file: `offline.html`. Nothing else, ever.
  *
  *  The usual answer is an app-shell cache, and it is the wrong one here. This
- *  project is judged from a live URL until 31 August. A cached shell means
+ *  project is judged from a live URL until judging ends. A cached shell means
  *  someone who opened it once can be served a build from before a fix, see a
  *  bug we already corrected, and have no way to tell — which for THIS product
  *  is worse than usual, because its whole claim is that you can trust what it

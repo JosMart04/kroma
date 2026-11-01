@@ -20,6 +20,9 @@ import { getImage, BODY_PHOTO_KEY } from '@/core/db';
 import { readApiError, GarmentThumb, DualView } from '@/core/ui';
 import type { Outfit } from '@/core/color';
 import { piecesForOutfitRender, toEngineCategory } from '@/core/youcam/tryOnCategory';
+
+/** What one `cloth-v4` render costs, from the paginated `/credit/feature-cost` list. */
+const UNITS_PER_RENDER = 2;
 import { getOutfitRender, saveOutfitRender } from '../lib/savedOutfits';
 
 interface Props {
@@ -186,6 +189,18 @@ export function OutfitTryOn({ outfit, profile, onClose }: Props) {
             </p>
           )}
 
+          {/*
+            ⚠️ The engine's documented reference spec supports the lower body only
+            as "actual worn outfits, not standalone product images". Saying so
+            before the render is cheaper than a wrong picture.
+          */}
+          {wearable.some((g) => g.category === 'bottom') && (
+            <p className="mt-2 flex items-start gap-2 text-sm text-slate-600">
+              <Info size={16} className="mt-0.5 shrink-0" aria-hidden />
+              For trousers and skirts the engine needs a photo of them being worn — a flat product shot is not supported for the lower body, and usually comes back wrong.
+            </p>
+          )}
+
           {result ? (
             <div className="mt-4">
               <p className="mb-3 flex items-start gap-2 rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-700">
@@ -222,7 +237,7 @@ export function OutfitTryOn({ outfit, profile, onClose }: Props) {
                 className="mt-3 inline-flex items-center gap-2 rounded-lg border-2 border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-60"
               >
                 <RefreshCw size={15} className={busy ? 'animate-spin' : ''} aria-hidden />
-                {busy ? 'Rendering…' : `Render again (${wearable.length} more units)`}
+                {busy ? 'Rendering…' : `Render again (${wearable.length * UNITS_PER_RENDER} more units)`}
               </button>
             </div>
           ) : (
@@ -232,7 +247,7 @@ export function OutfitTryOn({ outfit, profile, onClose }: Props) {
                 <TriangleAlert size={16} className="mt-0.5 shrink-0" aria-hidden />
                 <span>
                   This runs the engine once per piece — <strong>{wearable.length} renders</strong>{' '}
-                  — and each one spends from your YouCam account. The picture is kept
+                  at {UNITS_PER_RENDER} units each — spent from your YouCam account. The picture is kept
                   afterwards, so opening this again is free.
                 </span>
               </p>

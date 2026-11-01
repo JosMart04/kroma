@@ -1,17 +1,17 @@
 /**
- * Conversiones sRGB ↔ RGB lineal y luminancia relativa.
- * ⛔ PROPIETARIO: P1.
+ * sRGB ↔ linear RGB conversions and relative luminance.
+ * ⛔ OWNER: core.
  *
- * ⚠️ POR QUÉ ESTE FICHERO EXISTE Y ES OBLIGATORIO USARLO:
- * sRGB NO es lineal en luz. Aplicar una transformación de conos sobre valores
- * con gamma opera sobre el número equivocado y produce colores inventados.
- * Este es exactamente el error que tenía el borrador inicial del equipo.
- * Toda simulación cromática DEBE linealizar primero y aplicar gamma al final.
+ * ⚠️ WHY THIS FILE EXISTS AND MUST BE USED:
+ * sRGB is NOT linear in light. Applying a cone transform to gamma-encoded
+ * values operates on the wrong number and produces invented colours — the
+ * mistake most public implementations make. Every colour simulation MUST
+ * linearise first and apply gamma at the end.
  */
 
 export type RGB = readonly [r: number, g: number, b: number];
 
-/** sRGB 0–255 → RGB lineal 0–1. */
+/** sRGB 0–255 → linear RGB 0–1. */
 export function linearize(c: RGB): RGB {
   const f = (v: number) => {
     const s = v / 255;
@@ -20,7 +20,7 @@ export function linearize(c: RGB): RGB {
   return [f(c[0]), f(c[1]), f(c[2])];
 }
 
-/** RGB lineal 0–1 → sRGB 0–255, con recorte. */
+/** Linear RGB 0–1 → sRGB 0–255, clipped. */
 export function delinearize(c: RGB): RGB {
   const f = (v: number) => {
     const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
@@ -44,19 +44,19 @@ export function rgbToHex(c: RGB): string {
   return `#${h(c[0])}${h(c[1])}${h(c[2])}`;
 }
 
-/** Luminancia relativa WCAG (0–1) a partir de sRGB 0–255. */
+/** WCAG relative luminance (0–1) from sRGB 0–255. */
 export function relativeLuminance(c: RGB): number {
   const [r, g, b] = linearize(c);
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 /**
- * Ratio de contraste de luminancia, 1:1 a 21:1.
+ * Luminance contrast ratio, 1:1 to 21:1.
  *
- * 🔑 ESTE ES EL CANAL QUE SOBREVIVE AL DALTONISMO.
- * Dos colores pueden ser indistinguibles en tono para el usuario y seguir
- * siendo perfectamente separables por claridad. El veredicto DEBE usarlo,
- * o produciremos falsas alarmas constantes.
+ * 🔑 THIS IS THE CHANNEL THAT SURVIVES COLOUR BLINDNESS.
+ * Two colours can be indistinguishable in hue for the user and still be
+ * perfectly separable by lightness. The verdict MUST use it, or it produces
+ * constant false alarms.
  */
 export function contrastRatio(a: RGB, b: RGB): number {
   const la = relativeLuminance(a);

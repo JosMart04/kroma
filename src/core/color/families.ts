@@ -1,11 +1,11 @@
 /**
- * Familias de color (F8) y alerta de duplicados (F9).
- * ⛔ PROPIETARIO: P1. Consume: P3.
+ * Colour families (F8) and duplicate alerts (F9).
+ * ⛔ OWNER: core. Consumed by the wardrobe slice.
  *
- * 💡 Todo esto es matemática pura sobre colores YA medidos: cero llamadas a la
- *    API, cero coste. La medición de una prenda es un coste único; comparar 25
- *    prendas entre sí son 300 pares de aritmética. El armario no multiplica el
- *    coste, lo amortiza. Ese fue el argumento que justificó incluirlo.
+ * 💡 All of this is pure maths on colours ALREADY measured: zero API calls,
+ *    zero cost. Measuring a garment is a one-off cost; comparing 25 garments
+ *    with each other is 300 pairs of arithmetic. The wardrobe does not multiply
+ *    the cost, it amortises it.
  */
 import type {
   CVDProfile,
@@ -24,18 +24,18 @@ function simulatedLab(hex: string, profile: CVDProfile) {
 }
 
 /**
- * Agrupa el armario en familias mutuamente distinguibles PARA ESTE USUARIO.
+ * Groups the wardrobe into families that are mutually distinguishable FOR THIS USER.
  *
- * Clustering jerárquico aglomerativo con enlace simple y corte en el umbral de
- * colisión. Se prefiere a k-means porque es DETERMINISTA: la misma entrada da
- * siempre la misma salida, sin elegir k y sin variar entre ejecuciones. En un
- * demo grabado, la reproducibilidad vale más que la sofisticación.
+ * Agglomerative hierarchical clustering with single linkage, cut at the
+ * collision threshold. Preferred over k-means because it is DETERMINISTIC: the
+ * same input always gives the same output, with no k to choose and no
+ * run-to-run variation. Reproducibility is worth more here than sophistication.
  */
 export function computeFamilies(garments: Garment[], profile: CVDProfile): ColorFamily[] {
   if (garments.length === 0) return [];
 
   const labs = garments.map((g) => simulatedLab(g.colorHex, profile));
-  // Cada prenda arranca en su propio grupo.
+  // Every garment starts in its own group.
   let clusters: number[][] = garments.map((_, i) => [i]);
 
   const dist = (A: number[], B: number[]) => {
@@ -44,7 +44,7 @@ export function computeFamilies(garments: Garment[], profile: CVDProfile): Color
     return min;
   };
 
-  // Fusiona mientras haya dos grupos por debajo del umbral de colisión.
+  // Merge while two groups are below the collision threshold.
   for (;;) {
     let bi = -1, bj = -1, best = Infinity;
     for (let i = 0; i < clusters.length; i++) {

@@ -27,7 +27,7 @@ export function hexToLab(hex: string): Lab {
   return [l.l, l.a ?? 0, l.b ?? 0];
 }
 
-/** CIEDE2000 — la métrica correcta. Úsala salvo que midas un cuello de botella. */
+/** CIEDE2000 — the correct metric. Use it unless you have measured a bottleneck. */
 export function deltaE(a: Lab, b: Lab): number {
   return ciede2000(
     { mode: 'lab', l: a[0], a: a[1], b: a[2] },
@@ -36,29 +36,29 @@ export function deltaE(a: Lab, b: Lab): number {
 }
 
 /**
- * 🔑 ΔE2000 IGNORANDO LA CLARIDAD — iguala L* antes de medir.
+ * 🔑 ΔE2000 IGNORING LIGHTNESS — equalises L* before measuring.
  *
- * Responde a «¿son el mismo TONO?», que NO es lo mismo que «¿se parecen?».
+ * Answers "are they the same HUE?", which is NOT the same as "do they look alike?".
  *
- * ⚠️ POR QUÉ EXISTE ESTA FUNCIÓN, Y ES UN BUG REAL QUE TUVIMOS:
+ * ⚠️ WHY THIS FUNCTION EXISTS:
  *
- * `deltaE()` es CIEDE2000 completo, e incluye la diferencia de claridad ΔL*.
- * Usarlo para decidir «colisionan en tono» hacía IMPOSIBLE el rescate por
- * luminancia: cualquier par con contraste suficiente para salvarse ya tenía un
- * ΔE grande y salía clasificado como `safe` antes de llegar a la regla. Se
- * verificó sobre 130.816 pares de una rejilla que cubre todo sRGB: 8.147
- * colisionaban y **0** se salvaban, con un contraste máximo de 1,68 frente a un
- * umbral de 1,80. `savedByLuminance` era código muerto.
+ * `deltaE()` is full CIEDE2000 and includes the lightness difference ΔL*.
+ * Using it to decide "they collide in hue" makes the luminance rescue
+ * IMPOSSIBLE: any pair with enough contrast to be saved already has a large
+ * ΔE and is classified `safe` before reaching the rule. Verified over 130,816
+ * pairs on a grid covering all of sRGB: with the full metric, 8,147 collided
+ * and **0** were saved, with a maximum contrast of 1.68 against a threshold of
+ * 1.80 — `savedByLuminance` would be dead code.
  *
- * Separando los dos ejes —tono aquí, luminancia con `contrastRatio()`— la regla
- * vuelve a ser alcanzable, que es lo que siempre dijo la intención escrita.
+ * Separating the two axes — hue here, luminance with `contrastRatio()` — makes
+ * the rule reachable, which is what the written intention always said.
  */
 export function deltaEHue(a: Lab, b: Lab): number {
   const l = (a[0] + b[0]) / 2;
   return deltaE([l, a[1], a[2]], [l, b[1], b[2]]);
 }
 
-/** ΔE76 — euclídeo. Más barato, menos fiel. Solo para bucles muy grandes. */
+/** ΔE76 — Euclidean. Cheaper, less faithful. Only for very large loops. */
 export function deltaE76(a: Lab, b: Lab): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }

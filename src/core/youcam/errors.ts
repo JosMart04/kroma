@@ -79,6 +79,13 @@ const MAP: Record<string, UserFacingError> = {
 
   // ── Clothes try-on ─────────────────────────────────────────────────────
   error_multiple_people:              { message: 'There is more than one person in that photo. The try-on needs just you.', action: 'recapture', silent: false },
+  /**
+   * ⚠️ SAME MEANING, DIFFERENT SPELLING. `cloth-v4` answers `error_multi_person`
+   *    when its `filter_multi_person` check rejects a photo; other engines say
+   *    `error_multiple_people`. Both must be here or one of them reaches the
+   *    user as the generic fallback.
+   */
+  error_multi_person:                 { message: 'Someone else is clearly visible in one of the photos. The try-on needs one person only — crop them out or use another photo.', action: 'recapture', silent: false },
   error_no_shoulder:                  { message: 'I need to see your shoulders to place the garment. Step back a little.', action: 'recapture', silent: false },
   error_pose:                         { message: 'I cannot read the pose. Stand facing the camera, arms slightly away from your body.', action: 'recapture', silent: false },
   error_invalid_src:                  { message: 'I cannot use that photo of you — I need you facing the camera with your body visible.', action: 'recapture', silent: false },
@@ -98,9 +105,32 @@ const MAP: Record<string, UserFacingError> = {
   // Nothing about the photo is wrong, so the message must not imply it is.
   error_download_image:               { message: 'The image did not reach the engine. Nothing is wrong with your photo — try once more.', action: 'retry', silent: false },
 
+  error_download_mask:                { message: 'The image did not reach the engine. Nothing is wrong with your photo — try once more.', action: 'retry', silent: false },
+  error_decode_mask:                  { message: 'Something went wrong on our side preparing that image. Try once more.', action: 'retry', silent: false },
+
+  // ── The engine's own failures ──────────────────────────────────────────
+  // Listed in every task's documented error enum. None of them is about the
+  // user's photo being wrong, except face parsing, which is about framing.
+  error_face_parsing:                 { message: 'I could not separate your face from the background. Face the camera in even light, with your hair away from your face.', action: 'recapture', silent: false },
+  error_inference:                    { message: 'The analysis engine failed on its side. Nothing is wrong with your photo — try once more.', action: 'retry', silent: false },
+  error_upload:                       { message: 'The engine finished but could not hand the result back. Try once more.', action: 'retry', silent: false },
+
   // ── Content ────────────────────────────────────────────────────────────
   // Neutral, no accusation, and no retry.
   error_nsfw_content_detected:        { message: 'I cannot process this image. Please try another one.', action: 'none', silent: false },
+  exceed_nsfw_retry_limits:           { message: 'I cannot process this image. Please try another one.', action: 'none', silent: false },
+
+  /**
+   * ── Load ─────────────────────────────────────────────────────────────
+   *
+   * ⚠️ THE RATE LIMIT IS SHARED BY EVERY VISITOR. One server-side key serves the
+   *    whole deployment, so 250 requests / 300 s is a global budget. The client
+   *    retries with backoff first; this is what the user sees only if that
+   *    still fails.
+   */
+  RateLimited:                        { message: 'The measuring service is busy right now. Wait half a minute and try again — nothing is wrong with your photo.', action: 'retry', silent: false },
+  // The server no longer knows the task: it expired before we collected it.
+  InvalidTaskId:                      { message: 'That measurement took too long and expired before it came back. Please try again.', action: 'retry', silent: false },
 
   /**
    * ── Credits ──────────────────────────────────────────────────────────
@@ -117,6 +147,7 @@ const MAP: Record<string, UserFacingError> = {
   // ── Never surfaced as-is ───────────────────────────────────────────────
   invalid_parameter:                  { message: 'Something went wrong on our side. We are on it.', action: 'none', silent: false },
   InvalidParameters:                  { message: 'Something went wrong on our side. We are on it.', action: 'none', silent: false },
+  BadRequest:                         { message: 'Something went wrong on our side. We are on it.', action: 'none', silent: false },
   InvalidAccessToken:                 { message: 'The service is not configured correctly. This is our problem, not yours.', action: 'none', silent: false },
   // ⚠️ In practice this is ALMOST ALWAYS the missing PUT to S3.
   unknown_internal_error:             { message: 'Something went wrong on our side. We are on it.', action: 'retry', silent: false },

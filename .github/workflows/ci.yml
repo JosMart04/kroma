@@ -9,7 +9,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm ci
-      # Esta comprobación es la que sostiene el trabajo en paralelo.
-      # Si falla, alguien ha cruzado una frontera de rebanada.
+      # This check is what keeps parallel work safe.
+      # If it fails, someone has crossed a slice boundary.
       - run: node scripts/check-boundaries.mjs
       - run: npm run typecheck

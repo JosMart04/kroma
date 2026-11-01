@@ -9,10 +9,9 @@ next-env.d.ts
 .DS_Store
 .claude/settings.local.json
 
-# Fotos de PERSONA para validar endpoints — NUNCA se commitean.
-# public/ se sirve públicamente en el despliegue, que las bases obligan a
-# mantener abierto hasta el 31 de agosto: una foto de alguien acaba indexada.
-# Las 12 fotos de prenda (grm-XX.jpg) SÍ van al repo: son el armario del demo.
+# Photos of PEOPLE used to validate endpoints — NEVER committed.
+# public/ is served publicly by the deployment, which stays open to judges
+# until the end of judging: a photo of someone would end up indexed.
 public/fixtures/persona-*.jpg
 experiment/data/*.csv
 !experiment/data/.gitkeep

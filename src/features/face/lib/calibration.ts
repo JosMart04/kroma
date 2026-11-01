@@ -1,29 +1,29 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  F1 · CALIBRACIÓN — orquestación y perfil final
+ *  F1 · CALIBRATION — orchestration and final profile
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P2.
+ *  ⛔ OWNER: face slice.
  *
- *  Junta las dos etapas y produce el `CVDProfile` del que depende todo el
- *  resto del producto.
+ *  Combines the two stages and produces the `CVDProfile` the rest of the
+ *  product depends on.
  *
- *  🔑 QUIÉN MANDA, Y POR QUÉ NO ES OBVIO.
+ *  🔑 WHO DECIDES, AND WHY IT IS NOT OBVIOUS.
  *
- *     La etapa B (umbrales en los tres ejes) es el instrumento PRIMARIO: mide
- *     a cualquier severidad. La etapa A (ordenamiento) solo separa
- *     severidades ≥ 0,9 — lo demostró el arnés de autoconsistencia, y es una
- *     propiedad conocida de los tests de ordenamiento, no un fallo nuestro.
+ *     Stage B (thresholds on all three axes) is the PRIMARY instrument: it
+ *     measures at any severity. Stage A (arrangement) only separates
+ *     severities ≥ 0.9 — the self-consistency harness shows it, and it is a
+ *     known property of arrangement tests, not a fault of ours.
  *
- *     Así que A no decide: CORROBORA. Cuando las dos coinciden, la confianza
- *     sube. Cuando A no ve nada y B sí, no es contradicción — es el punto
- *     ciego esperado de A, y la confianza no debe bajar por eso. Pero cuando A
- *     ve una deficiencia marcada y B no la encuentra, eso sí es una
- *     contradicción real y hay que decirlo.
+ *     So A does not decide: it CORROBORATES. When the two agree, confidence
+ *     rises. When A sees nothing and B does, that is not a contradiction — it
+ *     is A's expected blind spot, and confidence must not drop because of it.
+ *     But when A sees a marked deficiency and B does not find it, that is a
+ *     real contradiction and it has to be said.
  *
- *  ⚠️ La confianza NO es decorativa. El contrato dice que por debajo de 0,5 hay
- *     que sugerir repetir el test, y esa es la única defensa del usuario: no
- *     puede mirar el resultado y notar que está mal.
+ *  ⚠️ Confidence is NOT decorative. The contract says that below 0.5 the test
+ *     should be retaken, and that is the user's only defence: they cannot look
+ *     at the result and notice it is wrong.
  */
 import type { CVDProfile, CVDType } from '@/core/contracts/types';
 import {
@@ -37,10 +37,10 @@ import {
 import type { ArrangementResult } from './arrangement';
 import { severityFromThreshold, type ThresholdSet } from './threshold';
 
-/** Severidad por debajo de la cual la etapa A es ciega, según el propio arnés. */
+/** Severity below which stage A is blind, according to the harness itself. */
 const ARRANGEMENT_BLIND_BELOW = 0.9;
 
-/** Si una escalera no llegó a converger, la medida vale menos. */
+/** If a staircase did not converge, the measurement is worth less. */
 const NON_CONVERGENCE_PENALTY = 0.75;
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -49,44 +49,43 @@ export interface AxisClassification {
   type: CVDType;
   severity: number;
   worstAxis: AxisKey;
-  /** Umbral del peor eje dividido por la media de los otros dos. Informativo. */
+  /** Threshold of the worst axis divided by the mean of the other two. Informative. */
   ratio: number;
-  /** Referencia de ruido para ese cociente. Informativo. */
+  /** Noise reference for that ratio. Informative. */
   boundary: number;
-  /** Cuánto le gana el mejor candidato con deficiencia a la normalidad. */
+  /** How far the best deficiency candidate beats normal vision. */
   evidence: number;
-  /** Dispersión relativa de las respuestas del usuario. El listón a superar. */
+  /** Relative spread of the user's answers. The bar to clear. */
   noise: number;
 }
 
-/** Divide un triple de umbrales por su media: compara la FORMA, no la escala. */
+/** Divides a threshold triple by its mean: compares the SHAPE, not the scale. */
 function normalizeTriple(values: number[]): number[] {
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
   return mean > 0 ? values.map((v) => v / mean) : values.map(() => 1);
 }
 
 /**
- * Clasifica a partir de los tres umbrales.
+ * Classifies from the three thresholds.
  *
- * 🔑 SE COMPARA EL PATRÓN COMPLETO, NO SOLO CUÁL ES EL PEOR.
+ * 🔑 THE WHOLE PATTERN IS COMPARED, NOT JUST WHICH ONE IS WORST.
  *
- *    Coger el eje de umbral más alto parecía lo natural, y el arnés demostró
- *    que no funciona: protán y deután confunden en direcciones casi iguales
- *    dentro de Lab, así que el máximo salta de uno a otro con nada de ruido y
- *    salían protanes clasificados como deutanes.
+ *    Taking the axis with the highest threshold looks natural, and the harness
+ *    shows it does not work: protan and deutan confuse along almost the same
+ *    directions in Lab, so the maximum flips from one to the other with almost
+ *    no noise and protans come out classified as deutans.
  *
- *    Lo que sí los separa es la FORMA de los tres umbrales a la vez: cuánto
- *    sube el rojo-verde RESPECTO al azul-amarillo es distinto en protán y en
- *    deután, aunque su eje peor sea casi el mismo. Así que se predice el
- *    triple de umbrales de cada hipótesis con el modelo y se busca el que
- *    mejor case con el medido — la misma comparación de modelos que en la
- *    etapa A, aplicada aquí.
+ *    What does separate them is the SHAPE of all three thresholds together: how
+ *    much red-green rises RELATIVE to blue-yellow differs between protan and
+ *    deutan, even when their worst axis is nearly the same. So the model
+ *    predicts the threshold triple of each hypothesis and the one that best
+ *    matches the measured triple is chosen — the same model comparison as in
+ *    stage A, applied here.
  *
- * 🔑 Y EL LÍMITE DE DECISIÓN SALE DE LOS DATOS DEL PROPIO USUARIO, no de una
- *    tabla: hace falta que el mejor candidato con deficiencia le gane a la
- *    normalidad por más de lo que varían las propias respuestas del usuario.
- *    Quien contesta errático necesita más evidencia; quien contesta
- *    consistente, menos.
+ * 🔑 AND THE DECISION BOUNDARY COMES FROM THE USER'S OWN DATA, not from a
+ *    table: the best deficiency candidate has to beat normal vision by more
+ *    than the user's own answers vary. Someone answering erratically needs
+ *    more evidence; someone answering consistently, less.
  */
 export function classifyFromThresholds(thresholds: ThresholdSet): AxisClassification {
   const value = (k: AxisKey) => thresholds[k].threshold;
@@ -99,7 +98,7 @@ export function classifyFromThresholds(thresholds: ThresholdSet): AxisClassifica
 
   const ranked = allHypotheses()
     .map((hypothesis) => ({ hypothesis, distance: fit(hypothesis) }))
-    // Empates → menor severidad. La hipótesis más simple gana.
+    // Ties → lower severity. The simplest hypothesis wins.
     .sort((a, b) => a.distance - b.distance || a.hypothesis.severity - b.hypothesis.severity);
 
   const normalFit = ranked.find((r) => r.hypothesis.type === 'normal')!;
@@ -140,13 +139,13 @@ export interface CalibrationInput {
 export interface CalibrationOutcome {
   profile: CVDProfile;
   /**
-   * 🔑 FALSE = NO DAMOS RESULTADO. No es un error: es una función del producto.
+   * 🔑 FALSE = WE GIVE NO RESULT. Not an error: a product feature.
    *
-   * Si las escaleras no convergieron o se fueron al techo, no hemos medido
-   * nada — da igual lo que salga del clasificador. `CLAUDE.md` lo dice para
-   * las mediciones ópticas y vale igual aquí: nuestro usuario no puede
-   * detectar que le hemos dado un número inventado, así que preferimos no
-   * dárselo. La interfaz enseña una negativa, no un diagnóstico.
+   * If the staircases did not converge or hit the ceiling, nothing was
+   * measured — whatever the classifier says. `CLAUDE.md` states it for optical
+   * measurements and it holds here too: our user cannot detect that we handed
+   * them an invented number, so we would rather not hand it over. The
+   * interface shows a refusal, not a diagnosis.
    */
   measurable: boolean;
   detail: {
@@ -172,11 +171,11 @@ export interface CalibrationOutcome {
 }
 
 /**
- * Cuánto se corroboran las dos etapas.
+ * How much the two stages corroborate each other.
  *
- * No es una simple igualdad porque las dos etapas no miden lo mismo ni tienen
- * la misma sensibilidad. Cada caso está enumerado a propósito: esconder esto
- * en una fórmula haría imposible saber por qué bajó la confianza.
+ * Not a simple equality, because the two stages neither measure the same thing
+ * nor have the same sensitivity. Each case is spelled out on purpose: hiding
+ * this inside a formula would make it impossible to know why confidence fell.
  */
 function agreementBetweenStages(
   typeA: CVDType,
@@ -184,27 +183,26 @@ function agreementBetweenStages(
   typeB: CVDType,
   severityB: number,
 ): number {
-  // Las dos coinciden en el eje: la confianza depende de cuánto se parezcan
-  // las severidades.
+  // Both agree on the axis: confidence depends on how close the severities are.
   if (typeA === typeB && typeA !== 'normal') {
     return clamp01(1 - Math.abs(severityA - severityB));
   }
 
-  // Las dos dicen "sin deficiencia". Corroboración limpia.
+  // Both say "no deficiency". Clean corroboration.
   if (typeA === 'normal' && typeB === 'normal') return 1;
 
-  // B encuentra algo que A no ve. Si cae en el punto ciego conocido de A, no
-  // es una contradicción: es lo esperado. Si es marcado, A debería haberlo
-  // visto y algo no cuadra.
+  // B finds something A does not see. If it falls in A's known blind spot, it
+  // is not a contradiction: it is expected. If it is marked, A should have
+  // seen it and something does not add up.
   if (typeA === 'normal' && typeB !== 'normal') {
     return severityB < ARRANGEMENT_BLIND_BELOW ? 0.9 : 0.3;
   }
 
-  // A ve una deficiencia marcada (solo las ve así) y B no la encuentra.
-  // Contradicción real entre el instrumento sensible y el ordenamiento.
+  // A sees a marked deficiency (the only kind it sees) and B does not find it.
+  // A real contradiction between the sensitive instrument and the arrangement.
   if (typeA !== 'normal' && typeB === 'normal') return 0.2;
 
-  // Cada una nombra un eje distinto. Es el peor caso.
+  // Each names a different axis. The worst case.
   return 0.1;
 }
 
@@ -215,9 +213,9 @@ export function buildProfile(input: CalibrationInput): CalibrationOutcome {
   const typeA = arrangement.best.type;
   const severityA = arrangement.best.severity;
 
-  // La etapa B manda salvo que no encuentre nada y A sí: en ese caso se
-  // conserva el eje de A, que solo dispara ante deficiencias marcadas, pero la
-  // confianza se hunde por la contradicción.
+  // Stage B decides unless it finds nothing and A does: then A's axis is kept,
+  // since A only fires on marked deficiencies, but confidence sinks because
+  // of the contradiction.
   const type = classification.type !== 'normal' ? classification.type : typeA;
   const severity =
     classification.type !== 'normal'
@@ -226,23 +224,21 @@ export function buildProfile(input: CalibrationInput): CalibrationOutcome {
         ? severityA
         : 0;
 
-  // 🔑 LA FUERZA DE LA EVIDENCIA SALE DE LA ETAPA B, NO DE LA A.
+  // 🔑 THE STRENGTH OF THE EVIDENCE COMES FROM STAGE B, NOT A.
   //
-  // La primera versión usaba el margen del ordenamiento y salían confianzas de
-  // 0,42 hasta en los casos que el sistema clavaba: como el ordenamiento es
-  // ciego por debajo de severidad 0,9, su margen es bajo casi siempre y
-  // arrastraba el total. Resultado: se le habría pedido repetir el test a casi
-  // todo el mundo, incluidos aquellos cuya medición fue impecable.
+  // Using the arrangement's margin gives confidences of 0.42 even in cases the
+  // system nails: since the arrangement is blind below severity 0.9, its margin
+  // is almost always low and drags the total down. Almost everyone, including
+  // people whose measurement was impeccable, would be asked to retake the test.
   //
-  // Lo que mide de verdad la solidez es a cuántos "ruidos" de distancia quedó
-  // la decisión de su propio límite. Relación señal-ruido, en las dos
-  // direcciones.
+  // What truly measures robustness is how many "noises" away from its own
+  // boundary the decision landed. Signal-to-noise, in both directions.
   //
-  // ⚠️ El valor absoluto era un error, y el arnés lo cantó: dejaba el caso
-  //    `normal` en 0,45 y le habría pedido repetir el test a toda persona sin
-  //    daltonismo. Que ninguna deficiencia le gane a la normalidad NO es falta
-  //    de evidencia — es evidencia de normalidad, y de la buena. Hay que medir
-  //    la separación respecto al límite, no su magnitud bruta.
+  // ⚠️ The absolute value is wrong, as the harness shows: it would leave the
+  //    `normal` case at 0.45 and ask every person without colour blindness to
+  //    retake the test. No deficiency beating normal vision is NOT a lack of
+  //    evidence — it is evidence of normal vision, and good evidence. The
+  //    distance from the boundary is what must be measured, not its raw size.
   const distanceFromBoundary =
     classification.type === 'normal'
       ? classification.noise - classification.evidence
@@ -308,15 +304,14 @@ export function buildProfile(input: CalibrationInput): CalibrationOutcome {
 }
 
 /**
- * Vía secundaria: el usuario ya tiene diagnóstico y prefiere introducirlo.
+ * Secondary path: the user already has a diagnosis and prefers to enter it.
  *
- * ⚠️ Nunca es la pregunta de entrada. Más de la mitad de nuestros usuarios son
- *    deuteranómalos leves sin diagnosticar: preguntarles qué tienen es pedirles
- *    justo el dato que han venido a buscar.
+ * ⚠️ It is never the opening question. More than half of our users are
+ *    undiagnosed mild deuteranomals: asking them what they have is asking for
+ *    exactly the answer they came for.
  *
- * `confidence: 1` refleja que el usuario está seguro de SU dato, no que lo
- * hayamos medido nosotros. Quien necesite esa distinción mira `source`, que
- * para eso está en el contrato.
+ * That the information came from the user, not from a measurement, is carried
+ * by `source`, which is in the contract for exactly that.
  */
 export function selfReportedProfile(type: CVDType, severity: number): CVDProfile {
   return {
@@ -338,7 +333,7 @@ export function selfReportedProfile(type: CVDType, severity: number): CVDProfile
   };
 }
 
-/** Etiqueta en español de un eje. La interfaz nunca muestra el código interno. */
+/** Human-readable label for an axis. The interface never shows the internal code. */
 export function typeLabel(type: CVDType): string {
   switch (type) {
     case 'protan':
@@ -407,7 +402,7 @@ export function describeType(type: CVDType): {
   }
 }
 
-/** Cómo de marcada es una severidad, en palabras. Texto, nunca solo color. */
+/** How marked a severity is, in words. Text, never colour alone. */
 export function severityLabel(severity: number): string {
   if (severity <= 0) return 'none';
   if (severity < 0.35) return 'mild';

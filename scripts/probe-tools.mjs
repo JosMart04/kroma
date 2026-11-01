@@ -13,7 +13,7 @@
  *
  *  WHY IT IS IN THE REPOSITORY
  *
- *  `docs/entrega/dossier-perfectcorp.md` reports findings and tells the reader
+ *  `docs/submission/perfect-corp-dossier.md` reports findings and tells the reader
  *  how to reproduce them. A report that says "run this script" without shipping
  *  the script is asking to be taken on trust, which is the one thing this
  *  project does not do.
@@ -60,7 +60,9 @@ for (const [name, url] of Object.entries(SERVERS)) {
     const { tools } = await client.listTools();
 
     if (wantSchema) {
-      const tool = tools.find((t) => t.name === wantSchema);
+      // The docs spell tools with underscores, the servers with hyphens: accept both.
+      const norm = (n) => n.toLowerCase().replace(/[-_s]/g, '');
+      const tool = tools.find((t) => norm(t.name) === norm(wantSchema));
       if (!tool) continue;
       console.log(`\n═══ ${name} · ${tool.name} ═══`);
       console.log((tool.description ?? '').slice(0, 400));

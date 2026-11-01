@@ -27,9 +27,9 @@ export default function Home() {
         </div>
         {/*
           The positioning rule from the spec: never open by talking about
-          colour. There are half a dozen "personal colour analysis" projects in
-          the gallery, and leading with colour files us in that pile before the
-          second sentence. Open with the person.
+          colour. "Personal colour analysis" is a crowded idea, and leading with
+          colour files us in that pile before the second sentence. Open with the
+          person.
 
           ⚠️ AND NEVER OPEN ON THE DEFICIT. The first version led with "you
           cannot see the colour of your own face", which is true and lands like

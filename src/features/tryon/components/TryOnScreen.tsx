@@ -232,6 +232,12 @@ export function TryOnScreen({ id }: { id: string }) {
 
         {renderable && (
           <>
+            {garment.category === 'bottom' && (
+              <p className="mt-3 flex items-start gap-2 rounded-lg border-2 border-slate-300 p-3 text-sm text-slate-700">
+                <Info size={16} className="mt-0.5 shrink-0" aria-hidden />
+                For trousers and skirts the engine needs a photo of them being worn — a flat product shot is not supported for the lower body, and usually comes back wrong.
+              </p>
+            )}
             {!bodyUrl && (
               <div className="mt-3">
                 <p className="mb-3 text-sm text-slate-600">

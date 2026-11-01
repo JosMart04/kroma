@@ -1,53 +1,52 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  MATRICES DE SIMULACIÓN CROMÁTICA — Machado 2009
+ *  COLOUR SIMULATION MATRICES — Machado 2009
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P1.
+ *  ⛔ OWNER: core.
  *
- *  🚫 NO EDITES LOS NÚMEROS A MANO. NO LOS COPIES DE UN BLOG. NO LOS SAQUES DE
- *     LA MEMORIA DE UN MODELO DE LENGUAJE.
+ *  🚫 DO NOT EDIT THE NUMBERS BY HAND. DO NOT COPY THEM FROM A BLOG. DO NOT
+ *     TAKE THEM FROM A LANGUAGE MODEL'S MEMORY.
  *
- *  Los 297 valores viven en `matrices.generated.ts`, transcritos mecánicamente
- *  por `scripts/gen-matrices.mjs`, con el SHA256 del fichero de origen en la
- *  cabecera. Si hay que tocarlos, se regenera:  npm run gen:matrices
+ *  The 297 values live in `matrices.generated.ts`, transcribed mechanically by
+ *  `scripts/gen-matrices.mjs`, with the SHA256 of the source file in the header.
+ *  If they ever need to change, regenerate them:  npm run gen:matrices
  *
- *  El borrador inicial del equipo citaba a Brettel/Viénot y a continuación
- *  usaba las matrices de la aproximación web de los años 2000, que la propia
- *  literatura de DaltonLens desaconseja. Un proyecto cuyo argumento central es
- *  la honestidad perceptual no puede entregar una simulación falsa citando el
- *  paper correcto: es el único error que un juez con formación en color detecta
- *  de inmediato, y desmonta la nota de Technological Implementation.
+ *  Citing Brettel/Viénot and then using the matrices of the early-2000s web
+ *  approximation — which the DaltonLens literature itself advises against — is
+ *  the classic mistake here. A project whose central argument is perceptual
+ *  honesty cannot ship a false simulation while citing the right paper: it is
+ *  the one error a judge with a colour background spots at once.
  *
- *  ── DE DÓNDE SALEN, CON PRECISIÓN ───────────────────────────────────────
+ *  ── EXACTLY WHERE THEY COME FROM ────────────────────────────────────────
  *
- *  ⚠️ CORRECCIÓN DEL 13-AGO-2026: durante dos días este fichero y el brief de
- *     P1 dijeron «rellenar desde libDaltonLens». Es FALSO y se verificó:
+ *  ⚠️ VERIFIED 13 AUG 2026 — the two DaltonLens projects contain different
+ *     models, and only one of them has the table we need:
  *
- *       · libDaltonLens (C, dominio público) → Brettel 1997 y Viénot 1999.
- *         La cadena "machado" aparece CERO veces en libDaltonLens.c.
- *       · DaltonLens-Python (MIT) → `machado_2009_matrices`, que es la tabla
- *         que necesitamos: 11 pasos de severidad, en RGB LINEAL.
+ *       · libDaltonLens (C, public domain) → Brettel 1997 and Viénot 1999.
+ *         The string "machado" appears ZERO times in libDaltonLens.c.
+ *       · DaltonLens-Python (MIT) → `machado_2009_matrices`, which is the table
+ *         we need: 11 severity steps, in LINEAR RGB.
  *
- *     Fuente primaria de los números: Machado, Oliveira & Fernandes (2009),
- *     IEEE TVCG 15(6), Tabla 1.
+ *     Primary source of the numbers: Machado, Oliveira & Fernandes (2009),
+ *     IEEE TVCG 15(6), Table 1.
  *
- *  ── QUÉ MODELO PARA QUÉ PERFIL ──────────────────────────────────────────
+ *  ── WHICH MODEL FOR WHICH PROFILE ───────────────────────────────────────
  *
- *   · Tricromacia anómala (LA MAYORÍA de usuarios) → Machado 2009. Es el único
- *     que parametriza severidad de verdad, y más de la mitad de nuestro público
- *     son deuteranómalos leves, no dicrómatas.
+ *   · Anomalous trichromacy (MOST users) → Machado 2009. It is the only model
+ *     that truly parameterises severity, and more than half of our audience
+ *     are mild deuteranomals, not dichromats.
  *
- *   · ⚠️ TRITÁN — LIMITACIÓN CONOCIDA Y ACEPTADA A PROPÓSITO:
- *     La propia fuente advierte de que Machado 2009 no es preciso para
- *     tritanopía, y su selector automático usa Brettel 1997 en ese caso.
- *     Nosotros usamos Machado también para tritán. Es una decisión consciente:
- *     tritán es rarísimo comparado con protán y deután, y la proyección en dos
- *     semiplanos de Brettel no cabe en el calendario de cuatro días.
+ *   · ⚠️ TRITAN — A KNOWN LIMITATION, ACCEPTED ON PURPOSE:
+ *     The source itself warns that Machado 2009 is not accurate for
+ *     tritanopia, and its automatic selector uses Brettel 1997 in that case.
+ *     We use Machado for tritan as well. It is a conscious decision: tritan is
+ *     very rare compared with protan and deutan, and Brettel's two-half-plane
+ *     projection is a separate piece of work.
  *
- *     NO se esconde: está declarado en `docs/entrega/limitaciones.md` para que
- *     entre en el README de la entrega. Declarar el límite puntúa mejor que
- *     fingir que no existe — y es coherente con la tesis del producto.
+ *     It is NOT hidden: it is declared in `docs/submission/limitations.md` and
+ *     in the README. Declaring the limit is worth more than pretending it does
+ *     not exist — and it is consistent with the product's thesis.
  */
 
 import type { CVDType } from '@/core/contracts/types';
@@ -59,17 +58,17 @@ export type Matrix3 = readonly [
   readonly [number, number, number],
 ];
 
-/** Severidades en las que Machado 2009 publica matrices. */
+/** The severities at which Machado 2009 publishes matrices. */
 export const SEVERITY_STEPS = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] as const;
 
 /**
- * Machado 2009, en el espacio RGB LINEAL (ojo: no en LMS).
- * Índice = paso de severidad. Los valores están en `matrices.generated.ts`.
+ * Machado 2009, in LINEAR RGB space (careful: not LMS).
+ * Index = severity step. The values are in `matrices.generated.ts`.
  */
 export const MACHADO_2009: Record<'protan' | 'deutan' | 'tritan', Matrix3[]> =
   MACHADO_2009_GENERATED;
 
-/** Trazabilidad de la transcripción, por si alguien quiere auditarla. */
+/** Traceability of the transcription, for anyone who wants to audit it. */
 export { MACHADO_2009_SOURCE_SHA256, MACHADO_2009_SOURCE_URL } from './matrices.generated';
 
 export function isReady(type: CVDType): boolean {
@@ -80,9 +79,9 @@ export function isReady(type: CVDType): boolean {
 export function assertReady(type: CVDType): void {
   if (!isReady(type)) {
     throw new Error(
-      `[core/color] Faltan las matrices de simulación para "${type}".\n` +
-        `Regenera src/core/color/matrices.generated.ts con: npm run gen:matrices\n` +
-        `NO inventes los valores: la honestidad perceptual es la tesis del proyecto.`,
+      `[core/color] The simulation matrices for "${type}" are missing.\n` +
+        `Regenerate src/core/color/matrices.generated.ts with: npm run gen:matrices\n` +
+        `Do NOT invent the values: perceptual honesty is the project's thesis.`,
     );
   }
 }

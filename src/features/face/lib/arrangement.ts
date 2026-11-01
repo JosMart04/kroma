@@ -1,13 +1,13 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  ETAPA A — PUNTUACIÓN DEL ORDENAMIENTO (F1)
+ *  STAGE A — SCORING THE ARRANGEMENT (F1)
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P2.
+ *  ⛔ OWNER: face slice.
  *
- *  Entra la permutación que produjo el usuario. Sale qué observador sintético
- *  la explica mejor. Comparación de modelos pura: ninguna constante clínica
- *  escrita a mano — ver la cabecera de `observer.ts` para el porqué.
+ *  In comes the permutation the user produced. Out comes which synthetic
+ *  observer explains it best. Pure model comparison: no hand-written clinical
+ *  constant — see the header of `observer.ts` for why.
  */
 import type { CVDType } from '@/core/contracts/types';
 import { deltaE, hexToLab } from '@/core/color';
@@ -21,37 +21,37 @@ import {
 
 export interface RankedHypothesis {
   hypothesis: Hypothesis;
-  /** Distancia de permutación al ordenamiento predicho. Menos = mejor ajuste. */
+  /** Permutation distance to the predicted arrangement. Lower = better fit. */
   footrule: number;
 }
 
 export interface ArrangementResult {
   best: Hypothesis;
   runnerUp: Hypothesis | null;
-  /** Separación entre la mejor hipótesis y la mejor de OTRO tipo, normalizada 0–1. */
+  /** Gap between the best hypothesis and the best one of ANOTHER type, normalised 0–1. */
   margin: number;
-  /** ΔE acumulado del recorrido del usuario, en visión normal. */
+  /** Accumulated ΔE of the user's path, in normal vision. */
   userCost: number;
-  /** ΔE acumulado del recorrido ideal. El suelo teórico. */
+  /** Accumulated ΔE of the ideal path. The theoretical floor. */
   normalCost: number;
-  /** userCost / normalCost. 1 = perfecto. Alto = cruzó el círculo. */
+  /** userCost / normalCost. 1 = perfect. High = they crossed the circle. */
   errorIndex: number;
   ranked: RankedHypothesis[];
 }
 
 /**
- * El otro sentido de giro del mismo recorrido.
+ * The other direction around the same path.
  *
- * El círculo de tono no tiene principio ni final: recorrerlo en sentido
- * horario o antihorario son las dos respuestas correctas. Sin esto, la mitad
- * de los usuarios sanos saldrían diagnosticados por haber girado al revés.
- * La referencia se queda fija en la cabeza; se invierte solo la cola.
+ * The hue circle has no beginning and no end: going round it clockwise or
+ * anticlockwise are both correct answers. Without this, half of all people
+ * with normal vision would be diagnosed for turning the other way. The
+ * reference stays fixed at the head; only the tail is reversed.
  */
 function mirror(order: number[]): number[] {
   return [order[0], ...order.slice(1).reverse()];
 }
 
-/** Posición de cada muestra dentro de un ordenamiento. */
+/** Position of each sample within an arrangement. */
 function positions(order: number[]): number[] {
   const pos = new Array<number>(CAP_COUNT);
   order.forEach((cap, i) => {
@@ -60,7 +60,7 @@ function positions(order: number[]): number[] {
   return pos;
 }
 
-/** Footrule de Spearman: suma de desplazamientos de cada muestra. */
+/** Spearman's footrule: sum of the displacement of each sample. */
 function footrule(a: number[], b: number[]): number {
   const pa = positions(a);
   const pb = positions(b);
@@ -69,12 +69,12 @@ function footrule(a: number[], b: number[]): number {
   return sum;
 }
 
-/** Footrule invariante al sentido de giro. */
+/** Footrule that does not care which way round the circle you went. */
 function ringFootrule(user: number[], predicted: number[]): number {
   return Math.min(footrule(user, predicted), footrule(user, mirror(predicted)));
 }
 
-/** ΔE acumulado de recorrer las muestras en este orden, en VISIÓN NORMAL. */
+/** Accumulated ΔE of walking the samples in this order, in NORMAL VISION. */
 function pathCost(order: number[]): number {
   const labs = CAPS.map((cap) => hexToLab(cap.hex));
   let sum = 0;
@@ -85,26 +85,26 @@ function pathCost(order: number[]): number {
 }
 
 /**
- * Cuánto tiene que ganarle una hipótesis de daltonismo a la normalidad antes
- * de que se lo digamos al usuario.
+ * How far a colour-blindness hypothesis has to beat normal vision before we
+ * tell the user.
  *
- * 🔑 NO ES UN NÚMERO ELEGIDO A DEDO. Es el punto medio entre el ordenamiento
- *    que predice la visión normal y el de la deficiencia más leve que el
- *    modelo SEPARA DE VERDAD. Regla del clasificador por punto medio: para
- *    llamarte daltónico, tu ordenamiento tiene que parecerse más al de un
- *    daltónico que al de un observador normal.
+ * 🔑 IT IS NOT A HAND-PICKED NUMBER. It is the midpoint between the arrangement
+ *    normal vision predicts and that of the mildest deficiency the model GENUINELY
+ *    SEPARATES. The midpoint-classifier rule: to be called colour-blind, your
+ *    arrangement has to look more like a colour-blind observer's than a normal
+ *    one's.
  *
- * ⚠️ EL FILTRO `> 0` NO ES COSMÉTICO, Y COSTÓ UN FALLO REAL.
- *    En las severidades más bajas Machado deforma tan poco que el recorrido
- *    predicho es IDÉNTICO al de la visión normal, así que su distancia es 0.
- *    Tomar el mínimo sin filtrar daba un margen de 0, y con eso cualquier
- *    empate se resolvía a favor del daltonismo: un ordenamiento perfecto salía
- *    diagnosticado. Nos interesa la deficiencia más leve DISTINGUIBLE, que es
- *    otra cosa que la más leve representable.
+ * ⚠️ THE `> 0` FILTER IS NOT COSMETIC.
+ *    At the lowest severities Machado distorts so little that the predicted
+ *    path is IDENTICAL to normal vision's, so its distance is 0. Taking the
+ *    minimum without filtering gives a margin of 0, and then every tie resolves
+ *    in favour of colour blindness: a perfect arrangement comes out diagnosed.
+ *    What matters is the mildest DISTINGUISHABLE deficiency, which is not the
+ *    same as the mildest representable one.
  *
- *    Decir "puede que tengas una deficiencia" a alguien que no la tiene es un
- *    daño real, y esta es la única decisión de producto del fichero. Por eso
- *    está aquí, con nombre, y no escondida dentro de una comparación.
+ *    Telling someone "you may have a deficiency" when they do not is a real
+ *    harm, and this is the only product decision in the file. That is why it
+ *    is here, named, and not buried inside a comparison.
  */
 function normalMargin(): number {
   const normalOrder = predictedOrder(NORMAL_HYPOTHESIS);
@@ -121,14 +121,14 @@ export function getNormalMargin(): number {
   return _margin;
 }
 
-/** Footrule máximo posible, para normalizar márgenes a 0–1. */
+/** Largest possible footrule, to normalise margins to 0–1. */
 const MAX_FOOTRULE = Math.floor((CAP_COUNT * CAP_COUNT) / 2);
 
 export function scoreArrangement(userOrder: number[]): ArrangementResult {
   if (userOrder.length !== CAP_COUNT || new Set(userOrder).size !== CAP_COUNT) {
     throw new Error(
-      `[face/arrangement] Se esperaba una permutación de ${CAP_COUNT} muestras, ` +
-        `llegaron ${userOrder.length} (${new Set(userOrder).size} distintas).`,
+      `[face/arrangement] Expected a permutation of ${CAP_COUNT} samples, ` +
+        `got ${userOrder.length} (${new Set(userOrder).size} distinct).`,
     );
   }
 
@@ -137,21 +137,21 @@ export function scoreArrangement(userOrder: number[]): ArrangementResult {
       hypothesis,
       footrule: ringFootrule(userOrder, predictedOrder(hypothesis)),
     }))
-    // Empates → menor severidad. La hipótesis más simple gana, que es lo que
-    // impide que el ruido se lea como un diagnóstico.
+    // Ties → lower severity. The simplest hypothesis wins, which is what stops
+    // noise being read as a diagnosis.
     .sort((a, b) => a.footrule - b.footrule || a.hypothesis.severity - b.hypothesis.severity);
 
   const normalFit = ranked.find((r) => r.hypothesis.type === 'normal')!;
   const bestDeficiency = ranked.find((r) => r.hypothesis.type !== 'normal')!;
 
-  // Estrictamente mayor: en un empate gana la normalidad. Es la asimetría
-  // deliberada — el coste de decirle a alguien sano que quizá es daltónico es
-  // mayor que el de quedarnos cortos, porque la etapa B todavía puede corregir.
+  // Strictly greater: on a tie, normal vision wins. The asymmetry is
+  // deliberate — telling a person with normal vision they may be colour-blind
+  // costs more than falling short, because stage B can still correct it.
   const beatsNormal = normalFit.footrule - bestDeficiency.footrule > getNormalMargin();
   const winner = beatsNormal ? bestDeficiency : normalFit;
 
-  // El competidor relevante es el mejor de OTRO tipo: saber que deután 0,5 va
-  // por delante de deután 0,6 no dice nada sobre si el diagnóstico es firme.
+  // The relevant competitor is the best of ANOTHER type: knowing that deutan
+  // 0.5 is ahead of deutan 0.6 says nothing about whether the diagnosis is firm.
   const runnerUp =
     ranked.find((r) => r.hypothesis.type !== winner.hypothesis.type) ?? null;
 
@@ -173,7 +173,7 @@ export function scoreArrangement(userOrder: number[]): ArrangementResult {
   };
 }
 
-/** Mejor ajuste por cada eje. Para el panel de diagnóstico. */
+/** Best fit per axis. For the diagnostic panel. */
 export function bestPerType(ranked: RankedHypothesis[]): Record<CVDType, RankedHypothesis> {
   const out = {} as Record<CVDType, RankedHypothesis>;
   for (const r of ranked) {

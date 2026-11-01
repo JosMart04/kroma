@@ -52,22 +52,23 @@ interface RunResult {
  *    So each server now says WHERE it is exercised, and the run reports which
  *    ones it actually reached.
  */
+/** Tool counts from the live servers' `tools/list`, verified 31 Oct 2026. */
 const SERVERS = [
   {
     name: 'beauty',
-    tools: 46,
+    tools: 50,
     why: 'measures the face — the colour the user cannot see',
     where: 'this run',
   },
   {
     name: 'creators',
-    tools: 34,
+    tools: 37,
     why: 'normalises the light, without which a measurement lies about itself',
     where: 'this run',
   },
   {
     name: 'fashion',
-    tools: 18,
+    tools: 19,
     why: 'renders the garment onto their body',
     where: 'the try-on screen, not here',
   },
@@ -157,15 +158,14 @@ export function McpRun() {
           would break the policy the rest of this screen is about.
         */}
         <p className="mt-4 rounded-lg border-2 border-slate-300 p-3 text-sm text-slate-700">
-          <strong>Two of the three servers do production work.</strong>{' '}
-          <code>beauty</code> is load-bearing — the makeup verification in this app exists
-          only over MCP, because <code>/task/makeup</code> is a 404 on REST — and{' '}
-          <code>fashion</code> renders every try-on, MCP first with REST underneath.{' '}
-          <code>creators</code> is exercised here and nowhere else, and that is a
-          consequence of the rule above rather than an oversight: the two tools we want
-          from it, photo lighting and background removal, both feed a measurement, and
-          measurements go over REST. We would rather reach two servers honestly than three
-          by breaking our own policy.
+          <strong>All three servers are reached; one does production work.</strong>{' '}
+          <code>fashion</code> renders every try-on in the app, MCP first with REST
+          underneath. <code>beauty</code> and <code>creators</code> are exercised in this run
+          and nowhere else, and that is a consequence of the rule above rather than an
+          oversight: the tools we use from them — face colour, phototype, photo lighting,
+          background removal, and the makeup render whose redness is measured before and
+          after — all feed a measurement, and measurements go over REST. We would rather
+          say that plainly than measure one face through two paths that disagree.
         </p>
       </section>
 

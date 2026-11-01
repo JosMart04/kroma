@@ -1,36 +1,36 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  TRANSCRIPTOR DE LAS MATRICES DE MACHADO 2009
+ *  TRANSCRIBER FOR THE MACHADO 2009 MATRICES
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P1.
+ *  ⛔ OWNER: core.
  *
- *  POR QUÉ EXISTE ESTE SCRIPT Y NO SE COPIARON LOS NÚMEROS A MANO:
+ *  WHY THIS SCRIPT EXISTS AND THE NUMBERS WERE NOT COPIED BY HAND:
  *
- *  Son 297 flotantes. Copiarlos a mano —o peor, dictarlos desde la memoria de
- *  un modelo de lenguaje— es exactamente el error que este proyecto existe para
- *  no cometer: nuestro usuario no puede detectar una simulación falsa. Aquí los
- *  números se descargan, se transcriben mecánicamente y queda el SHA256 del
- *  fichero de origen para que cualquiera pueda auditar la cadena entera.
+ *  They are 297 floats. Copying them by hand — or worse, dictating them from a
+ *  language model's memory — is exactly the mistake this project exists not to
+ *  make: our user cannot detect a false simulation. Here the numbers are
+ *  downloaded, transcribed mechanically, and the SHA256 of the source file is
+ *  kept so anyone can audit the whole chain.
  *
- *  ── DOS MODOS ───────────────────────────────────────────────────────────
+ *  ── TWO MODES ───────────────────────────────────────────────────────────
  *
- *    node scripts/gen-matrices.mjs           genera (npm run gen:matrices)
- *    node scripts/gen-matrices.mjs --check   verifica, SIN RED
+ *    node scripts/gen-matrices.mjs           generate (npm run gen:matrices)
+ *    node scripts/gen-matrices.mjs --check   verify, WITHOUT NETWORK
  *
- *  ⚠️ NO SE EJECUTA EN BUILD. Se ejecutó una vez, su salida está commiteada, y
- *     vive aquí solo para poder auditar y regenerar. El día de la entrega no
- *     puede haber una dependencia de red en el camino crítico.
+ *  ⚠️ IT DOES NOT RUN AT BUILD TIME. It ran once, its output is committed, and
+ *     it lives here only so the table can be audited and regenerated. A
+ *     deployment must not have a network dependency on its critical path.
  *
- *  El modo `--check` es el que cierra el agujero de la auditoría: el SHA256 del
- *  origen NO detecta que alguien edite a mano el fichero generado. Por eso se
- *  sella además un checksum de los 297 valores emitidos, que `--check`
- *  recalcula leyendo solo el fichero local. Sin red, apto para CI.
+ *  `--check` closes the audit gap: the source SHA256 does NOT detect a hand
+ *  edit of the generated file. So a checksum of the 297 emitted values is
+ *  sealed as well, and `--check` recomputes it reading only the local file.
+ *  No network, CI-safe.
  *
- *  ⚠️ OJO CON LA TRAMPA: cinco líneas por debajo de la tabla correcta, el mismo
- *     fichero de origen define `coblis_v1_matrices`, que es la aproximación web
- *     de los años 2000 que la propia literatura de DaltonLens desaconseja. El
- *     parseo se acota ANTES de ese símbolo y aborta si no encuentra el límite.
+ *  ⚠️ MIND THE TRAP: five lines below the correct table, the same source file
+ *     defines `coblis_v1_matrices`, the early-2000s web approximation that the
+ *     DaltonLens literature itself advises against. Parsing is bounded BEFORE
+ *     that symbol and aborts if the boundary is not found.
  */
 import { writeFileSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -42,15 +42,15 @@ const SOURCE_URL =
 const PRIMARY_SOURCE =
   'https://www.inf.ufrgs.br/~oliveira/pubs_files/CVD_Simulation/CVD_Simulation.html';
 
-// Anclado al propio script, no al directorio de trabajo: así funciona igual
-// tanto con `npm run` desde la raíz como ejecutándolo desde cualquier sitio.
+// Anchored to the script itself, not the working directory: it works the same
+// via `npm run` from the root as when run from anywhere else.
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'src/core/color/matrices.generated.ts');
 
 const EXPECTED_STEPS = 11;
-const EXPECTED_FLOATS = 297; // 11 pasos × 3 deficiencias × 9 valores
+const EXPECTED_FLOATS = 297; // 11 steps × 3 deficiencies × 9 values
 
-/** El ÚNICO formato numérico aceptado. Cualquier otro aborta: ver checkTokens. */
+/** The ONLY accepted number format. Anything else aborts: see checkTokens. */
 const FLOAT_TOKEN = /^-?\d+\.\d+$/;
 
 const DEFICIENCIES = [
@@ -59,112 +59,111 @@ const DEFICIENCIES = [
   ['tritan', 'Deficiency.TRITAN'],
 ];
 
-/** Aborta ruidosamente: más vale no generar nada que generar algo dudoso. */
+/** Abort loudly: better to generate nothing than something doubtful. */
 function abort(msg) {
-  console.error(`\n❌ ABORTADO — no se ha escrito nada.\n   ${msg}\n`);
+  console.error(`\n❌ ABORTED — nothing was written.\n   ${msg}\n`);
   process.exit(1);
 }
 
-/** Checksum canónico de los valores. Es lo que permite verificar sin red. */
+/** Canonical checksum of the values. It is what allows offline verification. */
 function dataChecksum(values) {
   return createHash('sha256').update(values.join(','), 'utf8').digest('hex');
 }
 
-/** Extrae los 297 literales del fichero generado, en orden. */
+/** Extracts the 297 literals from the generated file, in order. */
 function valuesFromGenerated(ts) {
   const body = ts
     .slice(ts.indexOf('= {'), ts.indexOf('\n};'))
-    .replace(/\/\/.*$/gm, ''); // fuera los comentarios "// severidad 0.4"
+    .replace(/\/\/.*$/gm, ''); // drop the "// severity 0.4" comments
   return body.match(/-?\d+\.\d+/g) ?? [];
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  MODO --check · sin red, solo lee el fichero local
+//  --check MODE · no network, reads only the local file
 // ══════════════════════════════════════════════════════════════════════════
 if (process.argv.includes('--check')) {
   let ts;
   try {
     ts = readFileSync(OUT, 'utf8');
   } catch {
-    abort(`No existe ${OUT}. Genéralo con: npm run gen:matrices`);
+    abort(`${OUT} does not exist. Generate it with: npm run gen:matrices`);
   }
 
   const declared = ts.match(/MACHADO_2009_DATA_SHA256 = '([a-f0-9]{64})'/)?.[1];
   if (!declared) {
     abort(
-      'El fichero generado no declara MACHADO_2009_DATA_SHA256. ' +
-        'Es de una versión anterior: regenéralo con npm run gen:matrices',
+      'The generated file does not declare MACHADO_2009_DATA_SHA256. ' +
+        'It is from an older version: regenerate it with npm run gen:matrices',
     );
   }
 
   const values = valuesFromGenerated(ts);
   if (values.length !== EXPECTED_FLOATS) {
-    abort(`El fichero generado tiene ${values.length} valores y debería tener ${EXPECTED_FLOATS}.`);
+    abort(`The generated file has ${values.length} values and should have ${EXPECTED_FLOATS}.`);
   }
 
   const actual = dataChecksum(values);
   if (actual !== declared) {
     abort(
-      `Los valores de ${OUT} NO cuadran con su propio checksum.\n` +
-        `   declarado: ${declared}\n` +
-        `   real:      ${actual}\n` +
-        `   Alguien ha editado las matrices a mano. Regenera con: npm run gen:matrices`,
+      `The values in ${OUT} do NOT match their own checksum.\n` +
+        `   declared: ${declared}\n` +
+        `   actual:   ${actual}\n` +
+        `   Someone edited the matrices by hand. Regenerate with: npm run gen:matrices`,
     );
   }
 
-  console.log(`✅ Matrices íntegras · ${values.length} valores · ${actual.slice(0, 16)}…`);
+  console.log(`✅ Matrices intact · ${values.length} values · ${actual.slice(0, 16)}…`);
   process.exit(0);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  MODO GENERAR
+//  GENERATE MODE
 // ══════════════════════════════════════════════════════════════════════════
 
-// ── 1. Descargar y sellar ────────────────────────────────────────────────
+// ── 1. Download and seal ─────────────────────────────────────────────────
 const res = await fetch(SOURCE_URL);
-if (!res.ok) abort(`No se pudo descargar el origen (HTTP ${res.status}).`);
+if (!res.ok) abort(`Could not download the source (HTTP ${res.status}).`);
 const source = await res.text();
 const sha256 = createHash('sha256').update(source, 'utf8').digest('hex');
 
-console.log(`· origen  ${SOURCE_URL}`);
+console.log(`· source  ${SOURCE_URL}`);
 console.log(`· bytes   ${Buffer.byteLength(source, 'utf8')}`);
 console.log(`· sha256  ${sha256}`);
 
-// ── 2. Acotar el bloque correcto, excluyendo coblis ──────────────────────
+// ── 2. Bound the right block, excluding coblis ───────────────────────────
 const start = source.indexOf('machado_2009_matrices');
-if (start < 0) abort('No se encontró `machado_2009_matrices` en el origen.');
+if (start < 0) abort('`machado_2009_matrices` was not found in the source.');
 
 const coblis = source.indexOf('coblis_v1_matrices');
 if (coblis < 0) {
   abort(
-    'No se encontró `coblis_v1_matrices`, que es el límite inferior del corte. ' +
-      'El fichero de origen ha cambiado de forma: revísalo a mano antes de seguir.',
+    '`coblis_v1_matrices`, the lower boundary of the cut, was not found. ' +
+      'The source file has changed shape: review it by hand before continuing.',
   );
 }
-if (coblis <= start) abort('`coblis_v1_matrices` aparece antes que la tabla de Machado.');
+if (coblis <= start) abort('`coblis_v1_matrices` appears before the Machado table.');
 
 const block = source.slice(start, coblis);
 
-// ── 3. Extraer, deficiencia por deficiencia ──────────────────────────────
-/** Posición de cada deficiencia dentro del bloque, para recortar su sección. */
+// ── 3. Extract, deficiency by deficiency ─────────────────────────────────
+/** Position of each deficiency inside the block, to cut out its section. */
 const bounds = DEFICIENCIES.map(([key, marker]) => {
   const at = block.indexOf(marker);
-  if (at < 0) abort(`No se encontró la sección \`${marker}\`.`);
+  if (at < 0) abort(`Section \`${marker}\` was not found.`);
   return { key, at };
 }).sort((a, b) => a.at - b.at);
 
 const MATRIX_RE = /(\d+)\s*:\s*np\.array\(\s*\[([\s\S]*?)\]\s*\)/g;
 
 /**
- * Tokeniza el interior de una matriz y EXIGE que los 9 valores tengan
- * exactamente la forma esperada.
+ * Tokenises the inside of a matrix and REQUIRES all 9 values to have exactly
+ * the expected shape.
  *
- * ⚠️ Antes esto se hacía con `.match(/-?\d+\.\d+/g)`, y ahí había un agujero
- *    real: un valor en notación científica (`1.234e-05`) habría casado como
- *    `1.234`, descartando el exponente en silencio. Seguirían saliendo 9
- *    valores y 297 en total, así que TODAS las puertas habrían pasado y
- *    habríamos emitido una matriz falsa con sello de auditoría. Es el único
- *    camino que produce números erróneos con apariencia de verificados.
+ * ⚠️ A loose `.match(/-?\d+\.\d+/g)` has a real hole: a value in scientific
+ *    notation (`1.234e-05`) would match as `1.234`, silently dropping the
+ *    exponent. There would still be 9 values and 297 in total, so EVERY gate
+ *    would pass and a false matrix would ship with an audit seal. It is the one
+ *    path that produces wrong numbers that look verified.
  */
 function checkTokens(inner, key, step) {
   const tokens = inner
@@ -174,13 +173,13 @@ function checkTokens(inner, key, step) {
     .filter(Boolean);
 
   if (tokens.length !== 9) {
-    abort(`${key}, paso ${step}: se esperaban 9 valores y se han leído ${tokens.length}.`);
+    abort(`${key}, step ${step}: expected 9 values and read ${tokens.length}.`);
   }
   for (const t of tokens) {
     if (!FLOAT_TOKEN.test(t)) {
       abort(
-        `${key}, paso ${step}: el valor "${t}" no tiene el formato decimal esperado. ` +
-          `El origen ha cambiado de notación (¿científica?) y transcribirlo así lo corrompería.`,
+        `${key}, step ${step}: value "${t}" is not in the expected decimal format. ` +
+          `The source changed notation (scientific?) and transcribing it this way would corrupt it.`,
       );
     }
   }
@@ -198,45 +197,45 @@ for (let i = 0; i < bounds.length; i++) {
   const steps = new Map();
   for (const m of section.matchAll(MATRIX_RE)) {
     const step = Number(m[1]);
-    if (steps.has(step)) abort(`${key}: el paso ${step} aparece dos veces.`);
-    // Se guardan los literales TAL CUAL vienen del origen: la transcripción es
-    // textual, no un redondeo nuestro.
+    if (steps.has(step)) abort(`${key}: step ${step} appears twice.`);
+    // The literals are kept EXACTLY as they come from the source: the
+    // transcription is textual, not a rounding of ours.
     steps.set(step, checkTokens(m[2], key, step));
     totalFloats += 9;
   }
 
   if (steps.size !== EXPECTED_STEPS) {
-    abort(`${key}: se esperaban ${EXPECTED_STEPS} pasos y se han leído ${steps.size}.`);
+    abort(`${key}: expected ${EXPECTED_STEPS} steps and read ${steps.size}.`);
   }
   for (let s = 0; s < EXPECTED_STEPS; s++) {
-    if (!steps.has(s)) abort(`${key}: falta el paso ${s}.`);
+    if (!steps.has(s)) abort(`${key}: step ${s} is missing.`);
   }
 
-  // Severidad 0 tiene que ser la identidad. Si no lo es, el parseo se ha
-  // desalineado y todo lo demás sería basura con pinta de dato.
+  // Severity 0 must be the identity. If it is not, the parse is misaligned and
+  // everything else would be rubbish that looks like data.
   const identity = [1, 0, 0, 0, 1, 0, 0, 0, 1];
   const zero = steps.get(0).map(Number);
   for (let k = 0; k < 9; k++) {
     if (Math.abs(zero[k] - identity[k]) > 1e-9) {
-      abort(`${key}: la severidad 0 no es la identidad (posición ${k} = ${zero[k]}).`);
+      abort(`${key}: severity 0 is not the identity (position ${k} = ${zero[k]}).`);
     }
   }
 
   parsed[key] = Array.from({ length: EXPECTED_STEPS }, (_, s) => steps.get(s));
-  console.log(`· ${key.padEnd(7)} ${steps.size} pasos ✓  identidad en 0 ✓  formato ✓`);
+  console.log(`· ${key.padEnd(7)} ${steps.size} steps ✓  identity at 0 ✓  format ✓`);
 }
 
 if (totalFloats !== EXPECTED_FLOATS) {
-  abort(`Se esperaban ${EXPECTED_FLOATS} flotantes en total y se han leído ${totalFloats}.`);
+  abort(`Expected ${EXPECTED_FLOATS} floats in total and read ${totalFloats}.`);
 }
-console.log(`· total   ${totalFloats} flotantes ✓`);
+console.log(`· total   ${totalFloats} floats ✓`);
 
-// Checksum de los valores en el mismo orden en que se van a emitir.
+// Checksum of the values in the same order they are emitted.
 const orderedValues = DEFICIENCIES.flatMap(([key]) => parsed[key].flat());
 const dataSha = dataChecksum(orderedValues);
-console.log(`· datos   ${dataSha}`);
+console.log(`· data    ${dataSha}`);
 
-// ── 4. Emitir TypeScript ─────────────────────────────────────────────────
+// ── 4. Emit TypeScript ───────────────────────────────────────────────────
 const generatedAt = new Date().toISOString().slice(0, 10);
 
 const body = DEFICIENCIES.map(([key]) => {
@@ -244,7 +243,7 @@ const body = DEFICIENCIES.map(([key]) => {
     .map((f, step) => {
       const sev = (step / 10).toFixed(1);
       return (
-        `    // severidad ${sev}\n` +
+        `    // severity ${sev}\n` +
         `    [[${f[0]}, ${f[1]}, ${f[2]}], ` +
         `[${f[3]}, ${f[4]}, ${f[5]}], ` +
         `[${f[6]}, ${f[7]}, ${f[8]}]],`
@@ -256,35 +255,35 @@ const body = DEFICIENCIES.map(([key]) => {
 
 const out = `/**
  * ══════════════════════════════════════════════════════════════════════════
- *  ⚠️ FICHERO GENERADO — NO EDITAR A MANO ⚠️
+ *  ⚠️ GENERATED FILE — DO NOT EDIT BY HAND ⚠️
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  Matrices de Machado 2009 en RGB LINEAL, 11 pasos de severidad (0.0–1.0).
- *  Regenerar con:  npm run gen:matrices
- *  Verificar sin red con:  npm run verify:matrices
+ *  Machado 2009 matrices in LINEAR RGB, 11 severity steps (0.0–1.0).
+ *  Regenerate with:  npm run gen:matrices
+ *  Verify offline with:  npm run verify:matrices
  *
- *  ── Procedencia ─────────────────────────────────────────────────────────
+ *  ── Provenance ──────────────────────────────────────────────────────────
  *
- *  Transcrito mecánicamente por scripts/gen-matrices.mjs desde:
+ *  Transcribed mechanically by scripts/gen-matrices.mjs from:
  *    ${SOURCE_URL}
- *    sha256 del origen: ${sha256}
- *    fecha de generación: ${generatedAt}
+ *    source sha256: ${sha256}
+ *    generated on: ${generatedAt}
  *
- *  Licencia del fichero de origen: MIT
+ *  Licence of the source file: MIT
  *    Copyright (c) 2021 Nicolas Burrus / DaltonLens
  *
- *  ── Fuente primaria ─────────────────────────────────────────────────────
+ *  ── Primary source ──────────────────────────────────────────────────────
  *
- *  Los números son del paper original, no de DaltonLens:
+ *  The numbers come from the original paper, not from DaltonLens:
  *    Machado, Oliveira & Fernandes (2009),
  *    "A Physiologically-based Model for Simulation of Color Vision Deficiency",
- *    IEEE TVCG 15(6). Tabla 1.
+ *    IEEE TVCG 15(6). Table 1.
  *    ${PRIMARY_SOURCE}
  *
- *  ⚠️ OJO: libDaltonLens (el proyecto en C, dominio público) NO contiene estas
- *     matrices — solo Brettel 1997 y Viénot 1999. Machado vive en el proyecto
- *     hermano DaltonLens-Python. Si alguien te manda a libDaltonLens a buscar
- *     Machado, no está ahí.
+ *  ⚠️ NOTE: libDaltonLens (the C project, public domain) does NOT contain these
+ *     matrices — only Brettel 1997 and Viénot 1999. Machado lives in the sister
+ *     project DaltonLens-Python. If anyone sends you to libDaltonLens for
+ *     Machado, it is not there.
  */
 
 import type { Matrix3 } from './matrices';
@@ -293,10 +292,10 @@ export const MACHADO_2009_GENERATED: Record<'protan' | 'deutan' | 'tritan', Matr
 ${body}
 };
 
-// Congelado en profundidad: las tres rebanadas comparten esta tabla POR
-// REFERENCIA. Un sort(), push() o reverse() accidental de cualquier consumidor
-// la corrompería para todo el proceso — y además rompería isReady(), que
-// comprueba la longitud. El coste es una pasada única al cargar el módulo.
+// Deep-frozen: every slice shares this table BY REFERENCE. An accidental
+// sort(), push() or reverse() by any consumer would corrupt it for the whole
+// process — and would also break isReady(), which checks the length. The cost
+// is a single pass when the module loads.
 for (const steps of Object.values(MACHADO_2009_GENERATED)) {
   for (const matrix of steps) {
     matrix.forEach(Object.freeze);
@@ -306,18 +305,18 @@ for (const steps of Object.values(MACHADO_2009_GENERATED)) {
 }
 Object.freeze(MACHADO_2009_GENERATED);
 
-/** SHA256 del fichero de origen del que salió esta tabla. Para auditoría. */
+/** SHA256 of the source file this table came from. For auditing. */
 export const MACHADO_2009_SOURCE_SHA256 = '${sha256}';
 export const MACHADO_2009_SOURCE_URL = '${SOURCE_URL}';
 
 /**
- * SHA256 de los ${EXPECTED_FLOATS} valores de arriba, en orden.
- * A diferencia del hash del origen, este se puede verificar SIN RED:
+ * SHA256 of the ${EXPECTED_FLOATS} values above, in order.
+ * Unlike the source hash, this one can be verified WITHOUT NETWORK:
  *   npm run verify:matrices
- * Es lo que detecta que alguien haya editado las matrices a mano.
+ * It is what detects a hand edit of the matrices.
  */
 export const MACHADO_2009_DATA_SHA256 = '${dataSha}';
 `;
 
 writeFileSync(OUT, out, 'utf8');
-console.log(`\n✅ Escrito ${OUT}`);
+console.log(`\n✅ Wrote ${OUT}`);

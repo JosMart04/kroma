@@ -1,6 +1,6 @@
 /**
- * Semáforo de conjunto (F11) — el corazón del producto.
- * ⛔ PROPIETARIO: P1. Consumen: P3 (armario) y P4 (analizador de compra).
+ * Outfit traffic light (F11) — the heart of the product.
+ * ⛔ OWNER: core. Consumed by the wardrobe and the purchase analyser.
  */
 import type { CVDProfile, PairVerdict, MeasurementConfidence } from '@/core/contracts/types';
 import { COLLISION_THRESHOLD_DELTA_E, LUMINANCE_RESCUE_THRESHOLD } from '@/core/contracts/types';
@@ -9,20 +9,20 @@ import { hexToRgb, contrastRatio } from './srgb';
 import { simulateRgb } from './simulate';
 
 /**
- * Por encima de este contraste, el par NO se avisa aunque colisione en tono.
+ * Above this contrast, the pair is NOT flagged even if it collides in hue.
  *
- * ⚠️ POR QUÉ HACE FALTA: dos NEUTROS no tienen tono que colisionar. Una camiseta
- * blanca y un pantalón gris marengo dan ΔE de tono 5,3 —simplemente porque
- * ninguno tiene croma— y se colaban como "arriesgado". Nadie confunde blanco con
- * marengo: eso es una falsa alarma, y CLAUDE.md avisa de que un producto que
- * avisa de más deja de usarse.
+ * ⚠️ WHY IT IS NEEDED: two NEUTRALS have no hue to collide. A white T-shirt and
+ * charcoal trousers give a hue ΔE of 5.3 — simply because neither has chroma —
+ * and slipped through as "risky". Nobody confuses white with charcoal: that is
+ * a false alarm, and a product that over-warns stops being used.
  *
- * 4.5 es el mínimo AA de WCAG para texto normal: el umbral por debajo del cual
- * la propia norma de accesibilidad considera que dos claridades ya no se
- * distinguen con fiabilidad. Usar el número de una norma existente, y no uno
- * inventado por nosotros, es deliberado.
+ * 4.5 is the WCAG AA minimum for normal text: the threshold below which the
+ * accessibility standard itself considers two lightnesses no longer reliably
+ * distinguishable. Using the number from an existing standard, rather than one
+ * we invented, is deliberate.
  *
- * Vive aquí y no en `contracts/types.ts` porque los contratos están congelados.
+ * It lives here rather than in `contracts/types.ts` because it is internal to
+ * this module.
  */
 const LUMINANCE_OBVIOUS_THRESHOLD = 4.5;
 
@@ -32,18 +32,18 @@ export interface VerdictInput {
   aName: string;
   bName: string;
   profile: CVDProfile;
-  /** Si alguna de las dos mediciones es dudosa, el veredicto se degrada. */
+  /** If either measurement is doubtful, the verdict is downgraded. */
   aConfidence?: MeasurementConfidence;
   bConfidence?: MeasurementConfidence;
 }
 
 /**
- * Emite el veredicto de un par.
+ * Issues the verdict for one pair.
  *
- * 🔑 LA REGLA QUE NOS DIFERENCIA DE CUALQUIER "MODO DALTÓNICO" GENÉRICO:
- * un par que colisiona en TONO pero tiene contraste de LUMINANCIA suficiente
- * NO es una colisión — el usuario los separa por claridad. Marcarlo como
- * choque genera falsas alarmas, y un producto que avisa de más deja de usarse.
+ * 🔑 THE RULE THAT SETS US APART FROM ANY GENERIC "COLOUR-BLIND MODE":
+ * a pair that collides in HUE but has enough LUMINANCE contrast is NOT a
+ * clash — the user separates them by lightness. Flagging it produces false
+ * alarms, and a product that over-warns stops being used.
  */
 export function judgePair(input: VerdictInput): PairVerdict {
   const { aHex, bHex, aName, bName, profile } = input;
@@ -60,24 +60,24 @@ export function judgePair(input: VerdictInput): PairVerdict {
   const luminanceContrast = contrastRatio(aRgb, bRgb);
 
   /**
-   * ⚠️ LA COLISIÓN SE MIDE SOBRE EL TONO, NO SOBRE EL ΔE COMPLETO.
+   * ⚠️ COLLISION IS MEASURED ON HUE, NOT ON THE FULL ΔE.
    *
-   * `deltaESimulated` incluye la diferencia de claridad, así que usarlo aquí
-   * hacía que las dos condiciones se excluyeran mutuamente y `savedByLuminance`
-   * no se cumpliera JAMÁS (0 de 8.147 pares colisionantes en un barrido de todo
-   * sRGB). Ver la nota en `deltaEHue()`.
+   * `deltaESimulated` includes the lightness difference, so using it here makes
+   * the two conditions mutually exclusive and `savedByLuminance` NEVER holds
+   * (0 of 8,147 colliding pairs in a sweep of all of sRGB). See the note on
+   * `deltaEHue()`.
    *
-   * `deltaESimulated` se sigue reportando tal cual en el veredicto: es la
-   * distancia perceptual real y el contrato no cambia.
+   * `deltaESimulated` is still reported as-is in the verdict: it is the real
+   * perceptual distance and the contract does not change.
    */
   const collidesInHue = deltaEHue(aSimLab, bSimLab) < COLLISION_THRESHOLD_DELTA_E;
   const savedByLuminance = collidesInHue && luminanceContrast >= LUMINANCE_RESCUE_THRESHOLD;
 
   /**
-   * Colisiona en tono, pero la claridad los separa tanto que no hay nada que
-   * avisar. `savedByLuminance` sigue siendo `true` —el par SÍ se salva por
-   * luminancia, que es lo que el contrato dice que significa ese campo—, pero
-   * el veredicto es `safe`, no `risky`: avisar aquí sería una falsa alarma.
+   * Collides in hue, but lightness separates them so much there is nothing to
+   * warn about. `savedByLuminance` stays `true` — the pair IS saved by
+   * luminance, which is what the contract says that field means — but the
+   * verdict is `safe`, not `risky`: warning here would be a false alarm.
    */
   const obviouslySeparated = luminanceContrast >= LUMINANCE_OBVIOUS_THRESHOLD;
 
@@ -86,10 +86,10 @@ export function judgePair(input: VerdictInput): PairVerdict {
   else if (savedByLuminance) verdict = 'risky';
   else verdict = 'clash';
 
-  // Una medición dudosa nunca puede producir un "seguro" rotundo.
-  const dudosa =
+  // A doubtful measurement can never produce an emphatic "safe".
+  const doubtful =
     input.aConfidence?.level === 'low_light' || input.bConfidence?.level === 'low_light';
-  if (dudosa && verdict === 'safe') verdict = 'risky';
+  if (doubtful && verdict === 'safe') verdict = 'risky';
 
   return {
     verdict,
@@ -98,7 +98,7 @@ export function judgePair(input: VerdictInput): PairVerdict {
     luminanceContrast: round(luminanceContrast),
     savedByLuminance,
     explanation: explain({
-      verdict, aName, bName, deltaESimulated, luminanceContrast, savedByLuminance, dudosa,
+      verdict, aName, bName, deltaESimulated, luminanceContrast, savedByLuminance, doubtful,
       collidesInHue,
     }),
   };
@@ -116,11 +116,11 @@ function explain(a: {
   verdict: PairVerdict['verdict'];
   aName: string; bName: string;
   deltaESimulated: number; luminanceContrast: number;
-  savedByLuminance: boolean; dudosa: boolean;
+  savedByLuminance: boolean; doubtful: boolean;
   collidesInHue: boolean;
 }): string {
   const pct = Math.round((1 - 1 / a.luminanceContrast) * 100);
-  const caveat = a.dudosa
+  const caveat = a.doubtful
     ? ' Careful: one of these was measured in poor light, so treat it as a rough guide.'
     : '';
 
@@ -143,7 +143,7 @@ function explain(a: {
   if (!a.collidesInHue) {
     return (
       `${cap(a.aName)} and ${a.bName} are easy for you to tell apart` +
-      (a.dudosa
+      (a.doubtful
         ? ', but one of them was measured in poor light, so the colour itself may not be exact.'
         : '.')
     );
@@ -178,7 +178,8 @@ function cap(s: string): string {
 
 export interface PaletteVerdict {
   skin: PairVerdict;
-  hair: PairVerdict;
+  /** Null when the portrait has no hair colour: nothing is judged against a guess. */
+  hair: PairVerdict | null;
   /** The worse of the two. A garment only has to disappear against one of them. */
   worst: PairVerdict;
 }
@@ -207,7 +208,7 @@ export interface PaletteVerdict {
 export function judgeAgainstPalette(
   garmentHex: string,
   garmentName: string,
-  portrait: { skinHex: string; hairHex: string; confidence?: MeasurementConfidence },
+  portrait: { skinHex: string; hairHex: string | null; confidence?: MeasurementConfidence },
   profile: CVDProfile,
   garmentConfidence?: MeasurementConfidence,
 ): PaletteVerdict {
@@ -219,8 +220,10 @@ export function judgeAgainstPalette(
     bConfidence: portrait.confidence,
   };
   const skin = judgePair({ ...common, bHex: portrait.skinHex, bName: 'your skin' });
-  const hair = judgePair({ ...common, bHex: portrait.hairHex, bName: 'your hair' });
+  const hair = portrait.hairHex
+    ? judgePair({ ...common, bHex: portrait.hairHex, bName: 'your hair' })
+    : null;
 
   const rank: Record<PairVerdict['verdict'], number> = { safe: 0, risky: 1, clash: 2 };
-  return { skin, hair, worst: rank[hair.verdict] > rank[skin.verdict] ? hair : skin };
+  return { skin, hair, worst: hair && rank[hair.verdict] > rank[skin.verdict] ? hair : skin };
 }

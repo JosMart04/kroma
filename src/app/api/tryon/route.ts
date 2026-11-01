@@ -34,6 +34,7 @@ import { uploadImage, toEngineJpeg } from '@/core/youcam/upload';
 import { youcam } from '@/core/youcam/client';
 import { downloadResult } from '@/core/youcam/poll';
 import { YouCamError } from '@/core/youcam/errors';
+import { withBudget, ROUTE_BUDGET_MS } from '@/core/youcam/budget';
 import { toEngineCategory, toAccessoryKind, type EngineGarmentCategory } from '@/core/youcam/tryOnCategory';
 import { callTool, McpUnavailable, TOOLS } from '@/core/mcp/client';
 import type { GarmentCategory } from '@/core/contracts/types';
@@ -93,6 +94,8 @@ async function renderCloth(
           src_file_id: srcFileId,
           ref_file_id: refFileId,
           garment_category: garmentCategory,
+          // Same as REST: never dress a second person who happens to be in frame.
+          filter_multi_person: 'normal',
         },
       },
     });
@@ -109,6 +112,10 @@ async function renderCloth(
 }
 
 export async function POST(req: Request) {
+  return withBudget(ROUTE_BUDGET_MS, () => handle(req));
+}
+
+async function handle(req: Request) {
   try {
     const form = await req.formData();
     const person = form.get('person');

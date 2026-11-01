@@ -9,7 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "check": "node scripts/check-boundaries.mjs && npm run typecheck && npm run lint",
-    "cost": "node scripts/feature-cost.mjs",
+    "cost": "node --env-file=.env.local scripts/feature-cost.mjs",
     "gen:matrices": "node scripts/gen-matrices.mjs",
     "verify:matrices": "node scripts/gen-matrices.mjs --check",
     "harness:calibration": "node --experimental-strip-types --no-warnings scripts/calibration-harness.mjs",
@@ -17,7 +17,9 @@
     "harness:garment": "node --experimental-strip-types --no-warnings scripts/garment-harness.mjs",
     "check:icons": "node scripts/check-icons.mjs",
     "harness:daltonize": "node --experimental-strip-types --no-warnings scripts/daltonize-harness.mjs",
-    "harness:upload": "node --experimental-strip-types --no-warnings scripts/upload-harness.mjs"
+    "harness:upload": "node --experimental-strip-types --no-warnings scripts/upload-harness.mjs",
+    "credits": "node --env-file=.env.local scripts/credits.mjs",
+    "probe:mcp": "node --env-file=.env.local scripts/probe-tools.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

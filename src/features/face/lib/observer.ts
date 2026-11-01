@@ -1,28 +1,28 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════
- *  OBSERVADORES SINTÉTICOS — de dónde sale el eje de confusión (F1)
+ *  SYNTHETIC OBSERVERS — where the confusion axis comes from (F1)
  * ══════════════════════════════════════════════════════════════════════════
  *
- *  ⛔ PROPIETARIO: P2.
+ *  ⛔ OWNER: face slice.
  *
- *  Puntuar un D-15 exige saber en qué dirección confunde los colores cada
- *  deficiencia. Eso son constantes publicadas (Vingrys & King-Smith, 1988).
+ *  Scoring a D-15 requires knowing in which direction each deficiency
+ *  confuses colours. Those are published constants (Vingrys & King-Smith, 1988).
  *
- *  🚫 NO LAS ESCRIBIMOS DE MEMORIA. Es exactamente el error que P1 estuvo a
- *     punto de cometer con las matrices: citar la fuente correcta y poner
- *     números plausibles pero inventados. Nuestro usuario no puede auditar el
- *     resultado, así que un eje mal puesto le daría un diagnóstico erróneo que
- *     no tendría forma de detectar.
+ *  🚫 WE DO NOT WRITE THEM FROM MEMORY. It is exactly the mistake that is so
+ *     easy to make with the matrices: cite the right source and put in
+ *     plausible but invented numbers. Our user cannot audit the result, so a
+ *     wrongly placed axis would give them a wrong diagnosis they would have no
+ *     way of detecting.
  *
- *  💡 EN VEZ DE CITARLAS, LAS DERIVAMOS. Ya tenemos un modelo perceptual
- *     sellado: Machado 2009 en `matrices.generated.ts`, con SHA256 del origen
- *     y 11 pasos de severidad. Si simulamos las muestras con una hipótesis y
- *     ordenamos por proximidad EN ESE ESPACIO, obtenemos el ordenamiento que
- *     produciría un observador con ese perfil. El eje de confusión sale del
- *     modelo, no de nuestra memoria.
+ *  💡 INSTEAD OF CITING THEM, WE DERIVE THEM. There is already a sealed
+ *     perceptual model: Machado 2009 in `matrices.generated.ts`, with the
+ *     source SHA256 and 11 severity steps. Simulate the samples under a
+ *     hypothesis and order them by proximity IN THAT SPACE, and you get the
+ *     arrangement an observer with that profile would produce. The confusion
+ *     axis comes out of the model, not out of our memory.
  *
- *     Ventaja de producto, no solo de honestidad: el motor que CALIBRA es el
- *     mismo que luego SIMULA lo que el usuario ve. Una sola fuente de verdad.
+ *     A product advantage, not just an honesty one: the engine that CALIBRATES
+ *     is the same one that later SIMULATES what the user sees. One source of truth.
  */
 import { converter, formatHex } from 'culori';
 import type { CVDProfile, CVDType, Lab } from '@/core/contracts/types';
@@ -32,7 +32,7 @@ import { CAPS, CAP_LIGHTNESS } from './caps';
 
 const fromLab = converter('rgb');
 
-/** El gris neutro de la etapa B va a la misma claridad que las muestras. */
+/** Stage B's neutral grey sits at the same lightness as the samples. */
 export const NEUTRAL_LIGHTNESS = CAP_LIGHTNESS;
 
 export interface Hypothesis {
@@ -42,16 +42,16 @@ export interface Hypothesis {
 
 export const NORMAL_HYPOTHESIS: Hypothesis = { type: 'normal', severity: 0 };
 
-/** Los tres ejes que se miden. `normal` no es un eje: es la ausencia de todos. */
+/** The three axes measured. `normal` is not an axis: it is the absence of all of them. */
 export type AxisKey = Exclude<CVDType, 'normal'>;
 export const AXIS_KEYS: readonly AxisKey[] = ['protan', 'deutan', 'tritan'];
 
 /**
- * Diferencia apenas perceptible, en CIEDE2000.
+ * Just-noticeable difference, in CIEDE2000.
  *
- * ΔE2000 = 1 es la definición estándar del umbral de percepción — es el
- * propósito declarado de la métrica, no un valor que hayamos elegido nosotros.
- * Es la única constante externa de todo el test, y es una definición.
+ * ΔE2000 = 1 is the standard definition of the perception threshold — it is the
+ * metric's stated purpose, not a value we chose. It is the only external
+ * constant in the whole test, and it is a definition.
  */
 export const JND_DELTA_E = 1.0;
 
@@ -59,12 +59,12 @@ export function labToHex(lab: Lab): string {
   return formatHex(fromLab({ mode: 'lab', l: lab[0], a: lab[1], b: lab[2] }));
 }
 
-/** Gris neutro desplazado (a*, b*) a la claridad del test, como hex. */
+/** Neutral grey shifted by (a*, b*) at the test's lightness, as hex. */
 export function labOffsetHex(a: number, b: number): string {
   return labToHex([NEUTRAL_LIGHTNESS, a, b]);
 }
 
-/** `simulateHex` pide un perfil entero; solo mira `type` y `severity`. */
+/** `simulateHex` wants a whole profile; it only looks at `type` and `severity`. */
 function asProfile(h: Hypothesis): CVDProfile {
   return {
     type: h.type,
@@ -76,11 +76,11 @@ function asProfile(h: Hypothesis): CVDProfile {
 }
 
 /**
- * Las hipótesis que se ponen a competir.
+ * The hypotheses put in competition.
  *
- * Son 3 deficiencias × 11 pasos, pero en `severity: 0` la matriz de Machado es
- * la identidad (lo verificó P1 al generarlas), así que las tres colapsan en el
- * mismo observador. Se cuenta una sola vez, como `normal` → 31 en total.
+ * 3 deficiencies × 11 steps, but at `severity: 0` the Machado matrix is the
+ * identity (verified when the table is generated), so all three collapse into
+ * the same observer. It is counted once, as `normal` → 31 in total.
  */
 export function allHypotheses(): Hypothesis[] {
   const deficiencies: Exclude<CVDType, 'normal'>[] = ['protan', 'deutan', 'tritan'];
@@ -93,7 +93,7 @@ export function allHypotheses(): Hypothesis[] {
   return out;
 }
 
-/** Las 16 muestras vistas por este observador, en Lab. Memoizado: se piden mucho. */
+/** The 16 samples as this observer sees them, in Lab. Memoised: asked for a lot. */
 const simulatedCache = new Map<string, Lab[]>();
 
 export function simulatedCaps(h: Hypothesis): Lab[] {
@@ -108,15 +108,15 @@ export function simulatedCaps(h: Hypothesis): Lab[] {
 }
 
 /**
- * El ordenamiento que produciría este observador: recorrido voraz del vecino
- * más cercano en SU espacio perceptual, arrancando en la referencia.
+ * The arrangement this observer would produce: a greedy nearest-neighbour
+ * walk in THEIR perceptual space, starting from the reference.
  *
- * Voraz y no óptimo a propósito. No estamos resolviendo el viajante: estamos
- * imitando lo que hace una persona, que mira la última ficha colocada y elige
- * la que más se le parece de las que quedan. El error característico del D-15
- * —cruzar el círculo por el eje ciego— sale precisamente de esa miopía.
+ * Greedy and not optimal on purpose. This is not the travelling salesman:
+ * it imitates what a person does, looking at the last cap placed and choosing
+ * the remaining one that looks most like it. The D-15's characteristic error —
+ * crossing the circle along the blind axis — comes precisely from that myopia.
  *
- * Determinista: los empates se rompen por índice menor.
+ * Deterministic: ties are broken by the lower index.
  */
 const orderCache = new Map<string, number[]>();
 
@@ -153,15 +153,15 @@ function computeOrder(h: Hypothesis): number[] {
 }
 
 /**
- * El eje de confusión de una hipótesis, en grados sobre el plano a*b*.
+ * A hypothesis's confusion axis, in degrees on the a*b* plane.
  *
- * Se busca numéricamente la dirección en la que el modelo COMPRIME más: se
- * separan dos colores simétricos respecto al gris a lo largo de cada
- * dirección, se simulan, y se mira cuánta separación sobrevive. La dirección
- * en la que menos sobrevive es el eje ciego de ese observador.
+ * The direction in which the model COMPRESSES most is searched numerically:
+ * two colours symmetric about grey are pulled apart along each direction,
+ * simulated, and the surviving separation is measured. The direction where
+ * least survives is that observer's blind axis.
  *
- * Lo usa la etapa B para poner la escalera sobre el eje que de verdad le
- * cuesta a este usuario, en vez de sobre un eje genérico.
+ * Stage B uses it to put the staircase on the axis that genuinely troubles
+ * this user, instead of on a generic one.
  */
 export function confusionAxisDeg(h: Hypothesis): number {
   if (h.type === 'normal' || h.severity <= 0) return 0;
@@ -187,10 +187,10 @@ export function confusionAxisDeg(h: Hypothesis): number {
 }
 
 /**
- * El eje de confusión de cada deficiencia, medido en su forma más pura
- * (severidad 1). Machado interpola hacia el dicrómata, así que la DIRECCIÓN
- * del eje es prácticamente la misma a cualquier severidad; lo que cambia es
- * cuánto comprime. Tomarlo en 1,0 da la estimación más limpia.
+ * Each deficiency's confusion axis, measured in its purest form (severity 1).
+ * Machado interpolates towards the dichromat, so the axis DIRECTION is
+ * practically the same at any severity; what changes is how much it
+ * compresses. Taking it at 1.0 gives the cleanest estimate.
  */
 const axisCache = new Map<AxisKey, number>();
 
@@ -204,11 +204,11 @@ export function axisOf(type: AxisKey): number {
 }
 
 /**
- * ΔE que percibiría este observador entre el gris neutro y el mismo gris
- * desplazado `offset` unidades a lo largo de `axisDeg`.
+ * The ΔE this observer would perceive between neutral grey and the same grey
+ * shifted `offset` units along `axisDeg`.
  *
- * Es la función que convierte un umbral medido en una severidad: se busca la
- * severidad para la que este valor cae al JND. Ver `threshold.ts`.
+ * It is the function that turns a measured threshold into a severity: the
+ * severity at which this value falls to the JND is searched for. See `threshold.ts`.
  */
 export function perceivedOffsetDeltaE(h: Hypothesis, axisDeg: number, offset: number): number {
   const profile = asProfile(h);
@@ -222,13 +222,13 @@ export function perceivedOffsetDeltaE(h: Hypothesis, axisDeg: number, offset: nu
 }
 
 /**
- * El umbral que MEDIRÍA un observador con este perfil sobre este eje: el
- * desplazamiento más pequeño que, ya deformado por su visión, sigue valiendo
- * un JND.
+ * The threshold an observer with this profile WOULD MEASURE on this axis: the
+ * smallest offset that, once distorted by their vision, is still worth one JND.
  *
- * Es la inversa de `perceivedOffsetDeltaE`, por bisección. La usan el arnés de
- * autoconsistencia (para simular sesiones completas) y la clasificación (para
- * saber qué diferencia entre ejes es esperable a cada severidad).
+ * The inverse of `perceivedOffsetDeltaE`, by bisection. Used by the
+ * self-consistency harness (to simulate whole sessions) and by the
+ * classification (to know what difference between axes to expect at each
+ * severity).
  */
 const thresholdCache = new Map<string, number>();
 
