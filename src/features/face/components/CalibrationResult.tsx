@@ -224,7 +224,7 @@ export function CalibrationResult({ outcome, saving, error, onSave, onRestart }:
           className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-slate-300 px-5 py-3 font-semibold text-slate-800"
         >
           <RotateCcw size={18} aria-hidden />
-          Repetir el test
+          Take the test again
         </button>
       </div>
     </section>
